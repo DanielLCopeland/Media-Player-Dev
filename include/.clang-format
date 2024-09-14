@@ -1,0 +1,28 @@
+# options: https://clang.llvm.org/docs/ClangFormatStyleOptions.html
+BasedOnStyle: Mozilla
+IndentWidth: 4
+ColumnLimit: 160
+# 4 spaces for indents
+TabWidth: 4
+# does (int) x instead of (int)x
+SpaceAfterCStyleCast: true
+# Use tabs!
+UseTab: Never
+# if (x) doStuff()  is not allowed, bad style
+AllowShortIfStatementsOnASingleLine: false
+# 
+AlignTrailingComments: true
+SpacesBeforeTrailingComments: 3
+# change the next line to All for Alistair's textbook style
+AlwaysBreakAfterReturnType: TopLevelDefinitions
+#  #define SHORT_NAME       42
+#  #define LONGER_NAME      0x007f   # does nice spacing for macros
+AlignConsecutiveMacros: Consecutive
+# use \n instead of \r\n
+UseCRLF: false
+# format lists between brackets like this:
+# {
+#     a,
+#     b,
+#     c
+# }

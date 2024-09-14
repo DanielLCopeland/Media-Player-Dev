@@ -1,0 +1,996 @@
+/**
+ * @file menu.h
+ *
+ * @brief Menu system
+ *
+ * @author Dan Copeland
+ *
+ * Licensed under GPL v3.0
+ *
+ * This program is free software: you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License as published by
+ * the Free Software Foundation, either version 3 of the License, or
+ * (at your option) any later version.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ *
+ * You should have received a copy of the GNU General Public License
+ * along with this program.  If not, see <http://www.gnu.org/licenses/>.
+ */
+
+#include <menu.h>
+
+void
+mainMenu()
+{
+    using namespace MENUDATA::MAIN_m;
+
+    ListSelection mainMenu;
+    SystemMessage message;
+    Timer timer;
+
+    // Get the MAC address
+    size_t mac = ESP.getEfuseMac();
+    // Convert to HEX
+    char macStr[13];
+    sprintf(macStr, "%012X", mac);
+
+    // Uptime
+    size_t uptime = 0;
+    std::string upTimeStr = "";
+    std::string freeHeapStr = freeHeapStr.substr(0, std::to_string((float) ESP.getFreeHeap() / (float) 1024).find(".") + 3);
+    items selection;
+
+    while (true) {
+        selection = (items) mainMenu.get(menu, SIZE);
+
+        switch (selection) {
+            case WIFI:
+                networkMenu();
+                break;
+
+            case BLUETOOTH:
+                bluetoothMenu();
+                break;
+
+            case SYSTEM:
+                systemMenu();
+                break;
+
+            case PLAYLIST_EDITOR:
+                playlistEditor_mainMenu();
+                break;
+
+            case INFO:
+
+                while (!timer.check(SYSTEM_INFO_DISPLAY_TIME_MS) && !buttons->getButtonEvent(BUTTON_EXIT, SHORTPRESS)) {
+                    uptime = millis() / 1000;
+                    upTimeStr = std::to_string(uptime / 3600) + "h " + std::to_string((uptime % 3600) / 60) + "m " + std::to_string(uptime % 60) + "s";
+
+                    message.show("v1.0\nFree RAM: " + freeHeapStr + "kB\nMAC: " + macStr + "\nUptime: " + upTimeStr, 0, false);
+                }
+
+                transport->playUIsound(folder_close, folder_close_len);
+                break;
+
+            case UI_EXIT:
+                return;
+        }
+    }
+}
+
+void
+systemMenu()
+{
+    using namespace MENUDATA::SYSTEM_m;
+
+    ListSelection systemMenu;
+    SystemMessage notify;
+
+    items selection;
+
+    while (true) {
+        selection = (items) systemMenu.get(menu, SIZE);
+
+        switch (selection) {
+            case AUDIO:
+                audioMenu();
+                break;
+
+            case USB_TRANSFER:
+                usbMenu();
+                break;
+
+            case SCREENSAVER:
+                screensaverMenu();
+                break;
+
+            case REBOOT:
+                notify.show("Rebooting...", 2000, false);
+                reboot();
+                break;
+
+            case RESET:
+                notify.show("Resetting...", 2000, false);
+                log_i("Resetting preferences...");
+                systemConfig->resetPreferences();
+                notify.show("Rebooting...", 0, false);
+                reboot();
+                break;
+
+            case DATETIME:
+                dateTimeMenu();
+                break;
+
+            case UI_EXIT:
+                return;
+                break;
+        }
+    }
+}
+
+void
+dateTimeMenu()
+{
+    using namespace MENUDATA::DATETIME_m;
+
+    ListSelection dateTimeMenu;
+    TableData tzData(timezones, timezones_length, timezones_num_columns);
+    TextInput textInput;
+    SystemMessage notify;
+    std::string input = "";
+    std::string currentTime = "";
+    std::string currentDate = "";
+    items menuSelection;
+    uint16_t timezoneSelection = 0;
+
+    while (true) {
+        menuSelection = (items) dateTimeMenu.get(menu, SIZE);
+
+        switch (menuSelection) {
+            case TIME:
+
+                input = textInput.get("Time: (HH:MM:SS)", systemConfig->getCurrentDateTime("%H:%M:%S"), 8, INPUT_FORMAT_TIME);
+
+                // Set the time
+                if (systemConfig->setTime(input))
+                    notify.show("Time set!", 2000, false);
+                else
+                    notify.show("Invalid time!", 2000, false);
+                break;
+
+            case DATE:
+
+                input = textInput.get("Date: (YYYY-MM-DD)", systemConfig->getCurrentDateTime("%Y-%m-%d"), 10, INPUT_FORMAT_DATE);
+
+                // Set the date
+                if (systemConfig->setDate(input))
+                    notify.show("Date set!", 2000, false);
+                else
+                    notify.show("Invalid date!", 2000, false);
+                break;
+
+            case TIMEZONE:
+                timezoneSelection = dateTimeMenu.get(tzData);
+                if (timezoneSelection != UI_EXIT) {
+                    systemConfig->setTimezone(tzData.get(timezoneSelection, 1));   // Row = timezoneSelection, Column = 1
+                    notify.show("Timezone set!", 2000, false);
+                }
+                break;
+
+            case ALARM:
+                alarmMenu();
+                break;
+
+            default:
+                return;
+        }
+    }
+}
+
+void
+alarmMenu()
+{
+    using namespace MENUDATA::ALARM_m;
+
+    ListSelection alarmMenu;
+    TextInput textInput;
+    FileBrowser* fileBrowser = new FileBrowser();
+    SystemMessage notify;
+    MediaData mediadata;
+    std::string input = "";
+    items selection;
+
+    while (true) {
+        selection = (items) alarmMenu.get(menu, SIZE);
+
+        switch (selection) {
+            case ENABLE:
+                systemConfig->enableAlarm();
+                notify.show("Alarm enabled!", 2000, false);
+                break;
+
+            case DISABLE:
+                systemConfig->disableAlarm();
+                notify.show("Alarm disabled!", 2000, false);
+                break;
+
+            case SET:
+
+                input = textInput.get("Time: (HH:MM:SS)", systemConfig->getAlarmTime().c_str(), 8, INPUT_FORMAT_TIME);
+
+                // Set the alarm time
+                if (systemConfig->setAlarmTime(input))
+                    notify.show("Alarm time set!", 2000, false);
+                else
+                    notify.show("Invalid time!", 2000, false);
+
+                break;
+
+            case MEDIA:
+                mediadata = fileBrowser->get();
+                if (mediadata.loaded) {
+                    systemConfig->saveAlarmMedia(mediadata);
+                    notify.show("Alarm media set!", 2000, false);
+                }
+                break;
+
+            default:
+                delete fileBrowser;
+                return;
+        }
+    }
+}
+
+void
+reboot()
+{
+    ESP.restart();
+}
+
+void
+wifiMenu()
+{
+    using namespace MENUDATA::WIFI_m;
+
+    ListSelection wifiToggleMenu;
+    SystemMessage notify;
+    Timer timeout;
+    items selection;
+
+    while (true) {
+        selection = (items) wifiToggleMenu.get(menu, SIZE);
+
+        if (selection == ENABLE) {
+            systemConfig->enableWifi();
+
+            while (WiFi.status() != WL_CONNECTED) {
+                notify.show("Connecting", 0, true);
+                if (WiFi.status() == WL_CONNECTED) {
+                    notify.show("Connected!", 2000, false);
+                    log_i("Connected to SSID: %s", systemConfig->getWifiSSID().c_str());
+                    break;
+                }
+
+                if (timeout.check(WIFI_CONNECTION_TIMEOUT_MS)) {
+                    notify.show("Connection timed out!", 2000, false);
+                    log_e("Connection to SSID timed out!");
+                    systemConfig->disableWifi();
+                    break;
+                }
+            }
+
+        }
+
+        else if (selection == DISABLE) {
+            systemConfig->disableWifi();
+            notify.show("Disconnected!", 2000, false);
+        }
+
+        else {
+            return;
+        }
+    }
+}
+
+void
+dhcpToggleMenu()
+{
+    using namespace MENUDATA::DHCP_TOGGLE_m;
+
+    ListSelection dhcpToggleMenu;
+    SystemMessage notify;
+    items selection;
+
+    selection = (items) dhcpToggleMenu.get(menu, SIZE);
+
+    if (selection == ENABLE) {
+        transport->playUIsound(load_item, load_item_len);
+        systemConfig->enableDHCP();
+        notify.show("DHCP enabled!", 2000, false);
+        log_i("DHCP enabled!");
+    }
+
+    else if (selection == DISABLE) {
+        systemConfig->disableDHCP();
+        notify.show("DHCP disabled!", 2000, false);
+        log_i("DHCP disabled!");
+    }
+
+    else {
+        return;
+    }
+}
+
+void
+networkMenu()
+{
+    using namespace MENUDATA::NETWORK_m;
+
+    ListSelection networkMenu;
+    Timer timeout;
+    SystemMessage notify;
+    TextInput textInput;
+    items selection;
+
+    while (true) {
+        selection = (items) networkMenu.get(menu, SIZE);
+
+        switch (selection) {
+            case TOGGLE:
+
+                wifiMenu();
+                break;
+
+            case DHCP:
+
+                dhcpToggleMenu();
+                break;
+
+            case SEARCH:
+
+                transport->playUIsound(folder_open, folder_open_len);
+                log_i("Starting SSID scanner");
+                ssidScanner();
+                break;
+
+            case SSID:
+
+                transport->playUIsound(folder_open, folder_open_len);
+                log_i("Current SSID: %s", systemConfig->getWifiSSID().c_str());
+                systemConfig->setWifiSSID(textInput.get("SSID:", systemConfig->getWifiSSID(), 255, INPUT_FORMAT_TEXT));
+                break;
+
+            case PASSWORD:
+
+                transport->playUIsound(folder_open, folder_open_len);
+                systemConfig->setWifiPassword(textInput.get("Password:", systemConfig->getWifiPassword(), 255, INPUT_FORMAT_PASSWORD));
+                break;
+
+            case IP_ADDRESS:
+
+                transport->playUIsound(folder_open, folder_open_len);
+                log_i("Current IP: %s", WiFi.localIP().toString().c_str());
+
+                if (systemConfig->isDHCPEnabled()) {
+                    notify.show("DHCP is enabled!\n\nCurrent IP:\n" + systemConfig->getIP(), 4000, false);
+                    break;
+                }
+
+                if (!systemConfig->setIP(textInput.get("IP Address", systemConfig->getIP(), 15, INPUT_FORMAT_IPADDRESS))) {
+                    notify.show("Invalid IP address!", 2000, false);
+                    break;
+                }
+
+            case NETMASK:
+
+                transport->playUIsound(folder_open, folder_open_len);
+                log_i("Current netmask: %s", WiFi.subnetMask().toString().c_str());
+
+                if (systemConfig->isDHCPEnabled()) {
+                    notify.show("DHCP is enabled!\n\nCurrent netmask:\n" + systemConfig->getNetmask(), 4000, false);
+                    break;
+                }
+
+                if (!systemConfig->setNetmask(textInput.get("Netmask:", systemConfig->getNetmask(), 15, INPUT_FORMAT_IPADDRESS))) {
+                    notify.show("Invalid netmask!", 2000, false);
+                    break;
+                }
+                break;
+
+            case GATEWAY:
+
+                transport->playUIsound(folder_open, folder_open_len);
+                log_i("Current gateway: %s", WiFi.gatewayIP().toString().c_str());
+
+                if (systemConfig->isDHCPEnabled()) {
+                    notify.show("DHCP is enabled!\n\nCurrent gateway:\n" + systemConfig->getGateway(), 4000, false);
+                    break;
+                }
+
+                if (!systemConfig->setGateway(textInput.get("Gateway:", systemConfig->getGateway(), 15, INPUT_FORMAT_IPADDRESS))) {
+                    notify.show("Invalid gateway!", 2000, false);
+                    break;
+                }
+                break;
+
+            case DNS:
+
+                transport->playUIsound(folder_open, folder_open_len);
+                log_i("Current DNS: %s", WiFi.dnsIP().toString().c_str());
+
+                if (systemConfig->isDHCPEnabled()) {
+                    notify.show("DHCP is enabled!\n\nCurrent DNS:\n" + systemConfig->getDNS(), 4000, false);
+                    break;
+                }
+
+                if (!systemConfig->setDNS(textInput.get("DNS:", systemConfig->getDNS(), 15, INPUT_FORMAT_IPADDRESS))) {
+                    notify.show("Invalid DNS!", 2000, false);
+                    break;
+                }
+                break;
+
+            case NTP_CONFIG:
+                transport->playUIsound(folder_open, folder_open_len);
+                ntpConfigMenu();
+                break;
+
+            case UI_EXIT:
+                return;
+                break;
+        }
+    }
+}
+
+void
+ntpConfigMenu()
+{
+    using namespace MENUDATA::NTP_m;
+
+    ListSelection ntpConfigMenu;
+    ListSelection timezoneMenu;
+
+    SystemMessage notify;
+    TextInput textInput;
+    std::string text;
+    TableData tzData(timezones, timezones_length, timezones_num_columns);
+    uint16_t timezoneSelection;
+    items selection;
+
+    while (true) {
+        selection = (items) ntpConfigMenu.get(menu, SIZE);
+
+        switch (selection) {
+            case SERVER:
+
+                text = textInput.get("NTP Server:", systemConfig->getNTPServer(), 255, INPUT_FORMAT_SERVADDR);
+                notify.show("Setting NTP server..." + text, 0, false);
+                if (systemConfig->setNTPServer(text)) {
+                    notify.show("NTP server set!", 2000, false);
+                } else {
+                    notify.show("Invalid server!", 2000, false);
+                }
+                break;
+
+            case INTERVAL:
+
+                text = textInput.get("Interval (1-1440 min):", std::to_string(systemConfig->getNTPInterval()), 4, INPUT_FORMAT_NUMERIC);
+                if (systemConfig->setNTPInterval(atoi(text.c_str()))) {
+                    notify.show("NTP interval set!", 2000, false);
+                } else {
+                    notify.show("Invalid interval!\nMust be between\n1-1440 minutes!", 2000, false);
+                }
+                break;
+
+            case TIMEZONE:
+
+                timezoneSelection = timezoneMenu.get(tzData);
+                if (timezoneSelection != UI_EXIT) {
+                    systemConfig->setTimezone(tzData.get(timezoneSelection, 1)); /* Row = timezoneSelection, Column = 1 */
+                    notify.show("Timezone set!", 2000, false);
+                }
+                break;
+
+            case UPDATE:
+
+                if (WiFi.status() != WL_CONNECTED) {
+                    notify.show("WiFi not connected!", 2000, false);
+                    break;
+                }
+                /* Update the system time */
+                systemConfig->updateNTP();
+                notify.show("Started update!", 2000, false);
+                break;
+
+            case UI_EXIT:
+                return;
+                break;
+        }
+    }
+}
+
+void
+playlistEditor_mainMenu()
+{
+    using namespace MENUDATA::PLAYLIST_EDITOR_m;
+
+    ListSelection playlistEditor;
+    TextInput textInput;
+    std::string filename;
+    std::string path;
+    FileBrowser* fileBrowser_load;
+    FileBrowser* fileBrowser_remove;
+    SystemMessage notify;
+    MediaData mediadata;
+    PlaylistEngine* _playlistEngine = nullptr;
+    items selection;
+
+    if (playlistEngine) {
+        _playlistEngine = new PlaylistEngine(playlistEngine);
+    } else {
+        return;
+    }
+    fileBrowser_remove = new FileBrowser();
+    fileBrowser_remove->setRoot(PLAYLIST_DIR);
+    fileBrowser_load = new FileBrowser();
+    fileBrowser_load->setRoot(PLAYLIST_DIR);
+
+    while (true) {
+        selection = (items) playlistEditor.get(menu, SIZE);
+
+        switch (selection) {
+
+            case LOAD:
+                if (!sdfs->isReady()) {
+                    _playlistEngine->eject();
+                    notify.show("SD card error!", 2000, false);
+                    break;
+                }
+                fileBrowser_load->refresh();
+                mediadata = fileBrowser_load->get();
+                if (mediadata.loaded) {
+                    /* If the playlist is loaded in the main engine, stop the transport */
+                    if (playlistEngine->getCurrentTrack() == mediadata) {
+                        transport->stop();
+                        playlistEngine->eject();
+                    }
+                    if (_playlistEngine->load(mediadata)) {
+                        notify.show("Playlist loaded!", 1000, false);
+                    } else {
+                        notify.show("Error!", 1000, false);
+                    }
+                }
+                break;
+
+            case EDIT:
+
+                if (!sdfs->isReady()) {
+                    _playlistEngine->eject();
+                    notify.show("SD card error!", 2000, false);
+                    break;
+                }
+
+                if (!_playlistEngine->isLoaded()) {
+                    notify.show("Not loaded!", 1000, false);
+                    break;
+                }
+                playlistEditor_trackMenu(_playlistEngine);
+                break;
+
+            case ADD:
+                filename = textInput.get("Filename:", "", 255, INPUT_FORMAT_TEXT);
+
+                /* If the filename is empty, return */
+                if (filename.empty()) {
+                    break;
+                }
+
+                /* Add the .m3u extension if it doesn't exist */
+                if (filename.find(".m3u") == std::string::npos) {
+                    filename += ".m3u";
+                }
+
+                if (!sdfs->isReady()) {
+                    notify.show("SD card error!", 2000, false);
+                    break;
+                }
+
+                /* Create the playlist */
+                if (sdfs->isReady() && !sdfs->exists(path.c_str())) {
+                    /* Create the file */
+                    FsFile dir;
+                    FsFile file;
+                    dir.open(PLAYLIST_DIR);
+                    file.open(&dir, filename.c_str(), O_RDWR | O_TRUNC | O_CREAT);
+                    file.close();
+                    dir.close();
+                    notify.show("Playlist created!", 1000, false);
+                } else {
+                    notify.show("Playlist exists!", 1000, false);
+                }
+                break;
+
+            case REMOVE:
+
+                while (true) {
+
+                    if (!sdfs->isReady()) {
+                        _playlistEngine->eject();
+                        notify.show("SD card error!", 2000, false);
+                        break;
+                    }
+
+                    fileBrowser_remove->refresh();
+                    mediadata = fileBrowser_remove->get();
+                    if (mediadata.loaded) {
+                        if (_playlistEngine->isLoaded() && mediadata == *_playlistEngine->getLoadedMedia()) {
+                            _playlistEngine->eject();
+                        }
+                        if (playlistEngine->isLoaded() && mediadata == *playlistEngine->getLoadedMedia()) {
+                            playlistEngine->eject();
+                        }
+                        if (sdfs->remove((std::string(PLAYLIST_DIR) + "/" + mediadata.filename).c_str())) {
+                            notify.show("Playlist deleted!", 1000, false);
+                        } else {
+                            notify.show("Error!", 1000, false);
+                        }
+                    } else {
+                        break;
+                    }
+                }
+                break;
+
+            default:
+                delete _playlistEngine;
+                delete fileBrowser_remove;
+                delete fileBrowser_load;
+                return;
+                break;
+        }
+    }
+    if (!sdfs->isReady()) {
+        _playlistEngine->eject();
+        notify.show("SD card error!", 2000, false);
+    }
+    return;
+}
+
+void
+playlistEditor_trackMenu(PlaylistEngine* _playlistEngine)
+{
+    using namespace MENUDATA::PLAYLIST_EDITOR_EDIT_m;
+
+    ListSelection playlistEditor;
+    FileBrowser* fileBrowser = nullptr;
+    SystemMessage notify;
+    TextInput textInput;
+    MediaData mediadata;
+    items selection;
+    uint16_t trackSelection;
+
+    fileBrowser = new FileBrowser();
+
+    while (sdfs->isReady()) {
+        selection = (items) playlistEditor.get(menu, SIZE);
+
+        switch (selection) {
+            case ADDTRACK:
+                
+                if (!sdfs->isReady()) {
+                    _playlistEngine->eject();
+                    notify.show("SD card error!", 2000, false);
+                    break;
+                }
+
+                mediadata = fileBrowser->get();
+                if (mediadata.loaded) {
+                    if (_playlistEngine->addTrack(mediadata)) {
+                        notify.show("Track added!", 1000, false);
+                    } else {
+                        notify.show("Error!", 1000, false);
+                    }
+                }
+                break;
+
+            case REMOVETRACK:
+
+                if (!sdfs->isReady()) {
+                    _playlistEngine->eject();
+                    notify.show("SD card error!", 2000, false);
+                    break;
+                }
+
+                while (sdfs->isReady()) {
+                    if (_playlistEngine && _playlistEngine->size() > 0) {
+                        trackSelection = _playlistEngine->view();
+                        if (trackSelection != UI_EXIT) {
+                            if (_playlistEngine->removeTrack(trackSelection)) {
+                                notify.show("Track removed!", 1000, false);
+                            } else {
+                                notify.show("Error!", 1000, false);
+                            }
+                        } else {
+                            break;
+                        }
+                    } else {
+                        notify.show("No Tracks!", 1000, false);
+                        break;
+                    }
+                }
+                break;
+
+            default:
+                delete fileBrowser;
+                return;
+                break;
+        }
+    }
+    if (!sdfs->isReady()) {
+        _playlistEngine->eject();
+        notify.show("SD card error!", 2000, false);
+    }
+    return;
+}
+
+void
+audioMenu()
+{
+    using namespace MENUDATA::AUDIO_m;
+
+    ListSelection audioMenu;
+    ValueSelector selector_bass = ValueSelector("Bass",
+                                                std::bind(&Transport::EqualizerController::getBass, transport->eq),
+                                                std::bind(&Transport::EqualizerController::bassUp, transport->eq),
+                                                std::bind(&Transport::EqualizerController::bassDown, transport->eq),
+                                                transport->eq->getMinBass(),
+                                                transport->eq->getMaxBass());
+    ValueSelector selector_mid = ValueSelector("Mid",
+                                               std::bind(&Transport::EqualizerController::getMid, transport->eq),
+                                               std::bind(&Transport::EqualizerController::midUp, transport->eq),
+                                               std::bind(&Transport::EqualizerController::midDown, transport->eq),
+                                               transport->eq->getMinMid(),
+                                               transport->eq->getMaxMid());
+    ValueSelector selector_treble = ValueSelector("Treble",
+                                                  std::bind(&Transport::EqualizerController::getTreble, transport->eq),
+                                                  std::bind(&Transport::EqualizerController::trebleUp, transport->eq),
+                                                  std::bind(&Transport::EqualizerController::trebleDown, transport->eq),
+                                                  transport->eq->getMinTreble(),
+                                                  transport->eq->getMaxTreble());
+    ValueSelector selector_sysvol = ValueSelector("UI Volume",
+                                                  std::bind(&Transport::getSystemVolume, transport),
+                                                  std::bind(&Transport::systemVolumeUp, transport),
+                                                  std::bind(&Transport::systemVolumeDown, transport),
+                                                  transport->getMinSystemVolume(),
+                                                  transport->getMaxSystemVolume());
+
+    SystemMessage notify;
+    items selection;
+
+    while (true) {
+        selection = (items) audioMenu.get(menu, SIZE);
+
+        switch (selection) {
+            case BASS:
+                selector_bass.get();
+                break;
+
+            case MID:
+                selector_mid.get();
+                break;
+
+            case TREBLE:
+                selector_treble.get();
+                break;
+
+            case SYSVOL:
+                selector_sysvol.get();
+                break;
+
+            default:
+                return;
+                break;
+        }
+    }
+    return;
+}
+
+void
+ssidScanner()
+{
+    if (playlistEngine->isEnabled() && transport->getStatus() == TRANSPORT_PLAYING && transport->getLoadedMedia().source == REMOTE_FILE) {
+        transport->stop();
+        playlistEngine->stop();
+    }
+
+    SystemMessage notify;
+    Timer SSIDscanTimeout;
+    bool reEnableWiFi = false;
+
+    if (systemConfig->isWifiEnabled()) {
+        systemConfig->disableWifi();
+        reEnableWiFi = true;
+    }
+
+    notify.show("Scanning", 0, true);
+
+    WiFi.scanDelete();
+    int16_t numNetworks = WiFi.scanNetworks(true, false);
+    log_i("Scanning for networks...");
+    while (WiFi.scanComplete() == -1 || WiFi.scanComplete() == -2 && !SSIDscanTimeout.check(WIFI_CONNECTION_TIMEOUT_MS)) {
+        notify.show("Scanning", 0, true);
+    }
+
+    if (numNetworks == 0) {
+        notify.show("No networks found!", 2000, false);
+        log_e("No networks found during SSID scan!");
+        return;
+    }
+
+    else {
+        /* Load up the SSIDs into a vector */
+        std::vector<std::string> networkList;
+        // networkList.reserve(numNetworks);
+        for (uint8_t i = 0; i < numNetworks && i < WIFI_MAX_DISPLAYED_NETWORKS; i++) {
+            networkList.push_back(WiFi.SSID(i).c_str());
+        }
+        /* Sort and remove duplicates */
+        std::sort(networkList.begin(), networkList.end());
+        networkList.erase(std::unique(networkList.begin(), networkList.end()), networkList.end());
+        /* Remove empty SSIDs */
+        networkList.erase(std::remove(networkList.begin(), networkList.end(), ""), networkList.end());
+        /* If the vector is left empty, return */
+        if (networkList.size() == 0) {
+            notify.show("No networks found!", 2000, false);
+            log_e("No networks found during SSID scan!");
+            if (reEnableWiFi)
+                systemConfig->enableWifi();
+            return;
+        }
+        ListSelection menu;
+        uint16_t selection = menu.get(networkList);
+
+        if (selection != UI_EXIT) {
+            systemConfig->setWifiSSID(networkList[selection]);
+            notify.show("SSID selected:\n\n" + networkList[selection], 2000, false);
+            log_i("Selected SSID: %s", networkList[selection].c_str());
+        }
+
+        WiFi.scanDelete();
+        if (reEnableWiFi)
+            systemConfig->enableWifi();
+    }
+}
+
+void
+usbMenu()
+{
+    SystemMessage notify;
+    if (!sdfs->isReady()) {
+        notify.show("SD card error!", 2000, false);
+        return;
+    }
+    transport->eject();
+    playlistEngine->eject();
+
+    USBMSC usb_msc;
+    usb_msc.vendorID("BMA");       //max 8 chars
+    usb_msc.productID("Media Player");    //max 16 chars
+    usb_msc.productRevision("1.0");  //max 4 chars
+    usb_msc.onStartStop(onStartStop);
+    usb_msc.onRead(onRead);
+    usb_msc.onWrite(onWrite);
+    usb_msc.mediaPresent(true);
+    usb_msc.begin(sdfs->card()->sectorCount(), 512);
+    USB.onEvent(usbEventCallback);
+    USB.manufacturerName("BMA");
+    USB.productName("Media Player");
+    USB.serialNumber("1.0");
+    USB.begin();
+    
+    while (sdfs->isReady()) {
+        notify.show("USB file transfer\nenabled. Press\nEXIT to end", 0, true);
+        if (buttons->getButtonEvent(BUTTON_EXIT, SHORTPRESS)) {
+            notify.show("Unmounting SD card\n and restarting...", 2000, false);
+            usb_msc.end();
+            ESP.restart();
+            return;
+        }
+    }
+
+    /* If we made it to this point, something has gone wrong with the SD card */
+    notify.show("SD card error!\nRestarting...", 2000, false);
+    usb_msc.end();
+    ESP.restart();
+    return;
+}
+
+void
+bluetoothMenu()
+{
+    using namespace MENUDATA::BLUETOOTH_m;
+
+    SystemMessage notify;
+    ListSelection bluetoothMenu;
+    items selection;
+
+    while (true) {
+        selection = (items) bluetoothMenu.get(menu, SIZE);
+
+        switch (selection) {
+            case ENABLE:
+                if (bluetooth->getMode() == POWER_ON) {
+                    notify.show("Bluetooth already\nenabled!", 2000, false);
+                    break;
+                }
+                bluetooth->powerOn();
+                notify.show("Bluetooth enabled!", 2000, false);
+                break;
+
+            case DISABLE:
+                if (bluetooth->getMode() == POWER_OFF) {
+                    notify.show("Bluetooth already\ndisabled!", 2000, false);
+                    break;
+                }
+                bluetooth->powerOff();
+                notify.show("Bluetooth disabled!", 2000, false);
+                break;
+
+            default:
+                return;
+                break;
+        }
+    }
+}
+
+void
+screensaverMenu()
+{
+    using namespace MENUDATA::SCREENSAVER_m;
+
+    ListSelection screensaverMenu;
+    SystemMessage notify;
+    items selection;
+    TextInput text;
+    uint16_t timeout = 0;
+
+    while (true) {
+        selection = (items) screensaverMenu.get(menu, SIZE);
+
+        switch (selection) {
+            case ENABLE:
+                if (systemConfig->isScreenSaverEnabled()) {
+                    notify.show("Screensaver already\nenabled!", 2000, false);
+                    break;
+                }
+                systemConfig->enableScreenSaver();
+                notify.show("Screensaver enabled!", 2000, false);
+                break;
+
+            case DISABLE:
+                if (!systemConfig->isScreenSaverEnabled()) {
+                    notify.show("Screensaver already\ndisabled!", 2000, false);
+                    break;
+                }
+                systemConfig->disableScreenSaver();
+                notify.show("Screensaver disabled!", 2000, false);
+                break;
+            
+            case TIMEOUT:
+                timeout = atoi(text.get("Timeout (1s-3600s):", std::to_string(systemConfig->getScreenSaverTimeout()), 4, INPUT_FORMAT_NUMERIC).c_str());
+                if (timeout < 1 || timeout > 3600) {
+                    notify.show("Invalid timeout!\nValid values are:\n1-3600", 2000, false);
+                    break;
+                }
+                systemConfig->setScreenSaverTimeout(timeout);
+                notify.show("Timeout set to\n" + std::to_string(timeout) + "seconds.", 2000, false);
+                break;
+
+            default:
+                return;
+                break;
+        }
+    }
+}
