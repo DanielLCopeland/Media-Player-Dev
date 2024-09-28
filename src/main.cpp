@@ -4,6 +4,10 @@
  * @brief Main entry point for the core program
  *
  * @author Dan Copeland
+ * 
+ * Dedicated to the memory of my father, Byron D. Copeland, who passed away
+ * on September 14, 2024, and who started me on this journey of discovery and
+ * learning so many decades ago.  I miss you, Dad.
  *
  * Licensed under GPL v3.0
  *
