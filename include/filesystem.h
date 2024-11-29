@@ -38,7 +38,7 @@
 #include <string>
 #include <system.h>
 #include <transport.h>
-#include <ui.h>
+#include <ui/common.h>
 #include <vector>
 
 #ifndef INDEX_FILE

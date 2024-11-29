@@ -24,8 +24,6 @@
 
 #include <card_manager.h>
 
-CardManager::CardManager() {}
-
 void
 CardManager::begin()
 {

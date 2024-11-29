@@ -43,7 +43,6 @@ extern PlaylistEngine* playlistEngine;
 class CardManager : public SdFs
 {
 public:
-    CardManager();
     void begin();
     void update();
     bool isReady();

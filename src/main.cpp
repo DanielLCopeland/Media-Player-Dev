@@ -43,8 +43,9 @@
 #include <system.h>
 #include <transport.h>
 #include <screensaver.h>
-#include <ui.h>
+#include <ui/common.h>
 #include <ui_sounds.h>
+#include <ESPAsyncWebServer.h>
 
 SET_LOOP_TASK_STACK_SIZE(16*1024); // 16KB
 
@@ -71,10 +72,11 @@ Adafruit_SSD1306* display = nullptr;      /* Display */
 Screensaver* screensaver = nullptr;       /* Screensaver */
 SystemConfig* systemConfig = nullptr;     /* System configuration */
 Transport* transport = nullptr;           /* Transport controls (play, pause, stop, load, etc) */
-StatusScreen* statusScreen = nullptr;     /* Status screen */
-FileBrowser* filebrowser = nullptr;       /* File browser */
-SystemMessage* notify = nullptr;          /* System messages */
+UI::StatusScreen* statusScreen = nullptr;     /* Status screen */
+UI::FileBrowser* filebrowser = nullptr;       /* File browser */
+UI::SystemMessage* notify = nullptr;          /* System messages */
 PlaylistEngine* playlistEngine = nullptr; /* Playlist engine */
+AsyncWebServer* server = nullptr;         /* Web server */
 
 void
 checkButtons()
@@ -82,7 +84,7 @@ checkButtons()
     if (buttons->getButtonEvent(BUTTON_EXIT, SHORTPRESS)) {
         if (buttons->isHeld(BUTTON_MENU) && playlistEngine->isEnabled()) {
             uint16_t selection = playlistEngine->view(true);
-            if (selection != UI_EXIT) {
+            if (selection != UI::UI_EXIT) {
                 playlistEngine->setCurrentTrack(selection);
                 bool wasPlaying = false;
                 if (transport->getStatus() == TRANSPORT_PLAYING) {
@@ -167,7 +169,7 @@ checkButtons()
         /* If this isn't an alt button press, then it's a volume up command */
         else {
             /* Create a ValueSelector object to adjust the volume using callbacks to the transport */
-            ValueSelector* volumeSelector = new ValueSelector("Volume",
+            UI::ValueSelector* volumeSelector = new UI::ValueSelector("Volume",
                                                               std::bind(&Transport::getVolume, transport),
                                                               std::bind(&Transport::volumeUp, transport),
                                                               std::bind(&Transport::volumeDown, transport),
@@ -195,7 +197,7 @@ checkButtons()
         /* If this isn't an alt button press, then it's a volume down command */
         else {
             /* Create a ValueSelector object to adjust the volume using callbacks to the transport */
-            ValueSelector* volumeSelector = new ValueSelector("Volume",
+            UI::ValueSelector* volumeSelector = new UI::ValueSelector("Volume",
                                                               std::bind(&Transport::getVolume, transport),
                                                               std::bind(&Transport::volumeUp, transport),
                                                               std::bind(&Transport::volumeDown, transport),
@@ -277,14 +279,14 @@ setup()
                                         std::function<bool()>(std::bind(&Transport::play, transport)),
                                         std::function<void()>(std::bind(&Transport::stop, transport)),
                                         std::function<uint8_t()>(std::bind(&Transport::getStatus, transport)));    
-    notify = new SystemMessage();
+    notify = new UI::SystemMessage();
     screensaver = new Screensaver();
     transport->begin();
-    statusScreen = new StatusScreen();
+    statusScreen = new UI::StatusScreen();
     systemConfig->begin();
     sdfs = new CardManager();
     sdfs->begin();
-    filebrowser = new FileBrowser();
+    filebrowser = new UI::FileBrowser();
     notify->show("Starting system...", 0, false);
     bluetooth = new Bluetooth();
     vTaskDelay(1000 / portTICK_PERIOD_MS);
@@ -299,6 +301,12 @@ setup()
 
     /* Event handler for when we cannot connect to the network */
     WiFiEventId_t wifiConnectFailed = WiFi.onEvent(onWifiFailed, WiFiEvent_t::ARDUINO_EVENT_WIFI_STA_START);
+
+    /* Start the web server */
+    //server = new AsyncWebServer(80);
+    //server->on("/", HTTP_GET, [](AsyncWebServerRequest *request) {
+    //    request->send(200, "text/plain", "Hello, world!");
+    //});
 
 }
 

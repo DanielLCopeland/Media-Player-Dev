@@ -23,6 +23,7 @@
 
 #ifndef menu_h
 #define menu_h
+
 #include <Arduino.h>
 #include <USBMSC.h>
 #include <buttons.h>
@@ -37,7 +38,9 @@
 #include <timer.h>
 #include <timezones.h>
 #include <transport.h>
-#include <ui.h>
+#include <ui/common.h>
+#include <snake.h>
+#include <tetris.h>
 
 #define SYSTEM_INFO_DISPLAY_TIME_MS 10000
 #define WIFI_CONNECTION_TIMEOUT_MS  10000
@@ -77,6 +80,7 @@ void playlistEditor_trackMenu(PlaylistEngine* _playlistEngine = nullptr);
 void audioMenu();
 void usbMenu();
 void screensaverMenu();
+void infoScreen();
 
 void ssidScanner();
 

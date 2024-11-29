@@ -37,7 +37,7 @@
 #include <system.h>
 #include <card_manager.h>
 #include <transport.h>
-#include <ui.h>
+#include <ui/common.h>
 #include <vector>
 
 #define TEMP_FILE "~playlist.tmp"

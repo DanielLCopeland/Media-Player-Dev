@@ -1,7 +1,7 @@
 /**
- * @file eventhandlers.h
+ * @file callbacks.h
  *
- * @brief Global event handlers
+ * @brief System callbacks
  *
  * @author Dan Copeland
  *
@@ -21,8 +21,8 @@
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-#ifndef eventhandlers_h
-#define eventhandlers_h
+#ifndef callbacks_h
+#define callbacks_h
 
 #include <Arduino.h>
 #include <SPI.h>

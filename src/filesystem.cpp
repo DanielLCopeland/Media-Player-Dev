@@ -86,7 +86,7 @@ void
 Filesystem::generateIndex(uint8_t sortType, uint8_t sortOrder, bool force)
 {
     log_i("Generating index file...");
-    SystemMessage message;
+    UI::SystemMessage message;
     FsFile file;
     MediaData mediadata;
 

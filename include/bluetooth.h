@@ -30,7 +30,7 @@
 #include <queue>
 #include <string>
 #include <timer.h>
-#include <ui.h>
+#include <ui/common.h>
 #include <vector>
 
 #define BLUETOOTH_RX      1
@@ -39,7 +39,10 @@
 #define BLUETOOTH_BAUD    115200
 #define cmd_array_size(a) (sizeof((a)) / sizeof(*(a)))
 
+namespace UI {
 class SystemMessage;
+}
+
 class Timer;
 class Buttons;
 
@@ -87,7 +90,7 @@ class Bluetooth
     static BluetoothMode _mode;
     static Timer _timer;
     static uint8_t scanCount;
-    static SystemMessage* _systemMessage;
+    static UI::SystemMessage* _systemMessage;
 
   public:
     Bluetooth();

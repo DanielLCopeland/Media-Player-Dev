@@ -60,7 +60,7 @@ enum items : uint16_t
     RESET,
     SIZE
 };
-const char* const menu[] PROGMEM = { "Audio", "Date/Time", "Screen Saver", "USB File Transfer", "Reboot", "Factory Reset" };
+const char* const menu[] PROGMEM = { "Audio", "Date/Time", "Screen Saver", "USB File Transfer", "Reboot", "Factory Reset"};
 }
 
 /* Date/Time menu */

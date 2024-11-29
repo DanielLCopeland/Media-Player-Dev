@@ -543,11 +543,11 @@ uint16_t
 PlaylistEngine::view(bool showIndex)
 {
     if (!enabled || trackList.size() == 0 || !_playlist) {
-        return UI_EXIT;
+        return UI::UI_EXIT;
     }
 
-    ListSelection listSelection;
-    SystemMessage systemMessage;
+    UI::ListSelection listSelection;
+    UI::SystemMessage systemMessage;
     uint16_t selection = 0;
 
     if (!enabled || trackList.size() == 0 || !_playlist) {

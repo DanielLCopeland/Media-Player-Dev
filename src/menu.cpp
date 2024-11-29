@@ -28,20 +28,7 @@ mainMenu()
 {
     using namespace MENUDATA::MAIN_m;
 
-    ListSelection mainMenu;
-    SystemMessage message;
-    Timer timer;
-
-    // Get the MAC address
-    size_t mac = ESP.getEfuseMac();
-    // Convert to HEX
-    char macStr[13];
-    sprintf(macStr, "%012X", mac);
-
-    // Uptime
-    size_t uptime = 0;
-    std::string upTimeStr = "";
-    std::string freeHeapStr = freeHeapStr.substr(0, std::to_string((float) ESP.getFreeHeap() / (float) 1024).find(".") + 3);
+    UI::ListSelection mainMenu;
     items selection;
 
     while (true) {
@@ -65,21 +52,54 @@ mainMenu()
                 break;
 
             case INFO:
-
-                while (!timer.check(SYSTEM_INFO_DISPLAY_TIME_MS) && !buttons->getButtonEvent(BUTTON_EXIT, SHORTPRESS)) {
-                    uptime = millis() / 1000;
-                    upTimeStr = std::to_string(uptime / 3600) + "h " + std::to_string((uptime % 3600) / 60) + "m " + std::to_string(uptime % 60) + "s";
-
-                    message.show("v1.0\nFree RAM: " + freeHeapStr + "kB\nMAC: " + macStr + "\nUptime: " + upTimeStr, 0, false);
-                }
-
-                transport->playUIsound(folder_close, folder_close_len);
+                infoScreen();
                 break;
 
-            case UI_EXIT:
+            case UI::UI_EXIT:
                 return;
         }
     }
+}
+
+void
+infoScreen()
+{
+    UI::SystemMessage message;
+    Timer timer;
+
+    /* Get the MAC address */
+    size_t mac = ESP.getEfuseMac();
+    /* Convert to HEX */
+    char macStr[13];
+    sprintf(macStr, "%012X", mac);
+
+    /* Uptime */
+    size_t uptime = 0;
+    std::string upTimeStr = "";
+
+    /* Free heap */
+    std::string freeHeapStr;
+
+    while (!timer.check(SYSTEM_INFO_DISPLAY_TIME_MS) && !buttons->getButtonEvent(BUTTON_EXIT, SHORTPRESS)) {
+        uptime = millis() / 1000;
+        upTimeStr = std::to_string(uptime / 3600) + "h " + std::to_string((uptime % 3600) / 60) + "m " + std::to_string(uptime % 60) + "s";
+        freeHeapStr = std::to_string(ESP.getFreeHeap() / 1024);
+
+        message.show("Free RAM: " + freeHeapStr + "kB\nMAC: " + macStr + "\nUptime: " + upTimeStr, 0, false);
+
+        if (buttons->getButtonEvent(BUTTON_PLAY, LONGPRESS)) {
+            UI::BinarySelector binarySelector("Tetris", "Snake");
+            if (binarySelector.get()) {
+                Snake snake;
+                snake.run();
+            } else {
+                Tetris tetris;
+                tetris.run();
+            }
+            break;
+        }
+    }
+    return;
 }
 
 void
@@ -87,8 +107,8 @@ systemMenu()
 {
     using namespace MENUDATA::SYSTEM_m;
 
-    ListSelection systemMenu;
-    SystemMessage notify;
+    UI::ListSelection systemMenu;
+    UI::SystemMessage notify;
 
     items selection;
 
@@ -125,7 +145,7 @@ systemMenu()
                 dateTimeMenu();
                 break;
 
-            case UI_EXIT:
+            case UI::UI_EXIT:
                 return;
                 break;
         }
@@ -137,10 +157,10 @@ dateTimeMenu()
 {
     using namespace MENUDATA::DATETIME_m;
 
-    ListSelection dateTimeMenu;
+    UI::ListSelection dateTimeMenu;
     TableData tzData(timezones, timezones_length, timezones_num_columns);
-    TextInput textInput;
-    SystemMessage notify;
+    UI::TextInput textInput;
+    UI::SystemMessage notify;
     std::string input = "";
     std::string currentTime = "";
     std::string currentDate = "";
@@ -153,7 +173,7 @@ dateTimeMenu()
         switch (menuSelection) {
             case TIME:
 
-                input = textInput.get("Time: (HH:MM:SS)", systemConfig->getCurrentDateTime("%H:%M:%S"), 8, INPUT_FORMAT_TIME);
+                input = textInput.get("Time: (HH:MM:SS)", systemConfig->getCurrentDateTime("%H:%M:%S"), 8, UI::INPUT_FORMAT_TIME);
 
                 // Set the time
                 if (systemConfig->setTime(input))
@@ -164,7 +184,7 @@ dateTimeMenu()
 
             case DATE:
 
-                input = textInput.get("Date: (YYYY-MM-DD)", systemConfig->getCurrentDateTime("%Y-%m-%d"), 10, INPUT_FORMAT_DATE);
+                input = textInput.get("Date: (YYYY-MM-DD)", systemConfig->getCurrentDateTime("%Y-%m-%d"), 10, UI::INPUT_FORMAT_DATE);
 
                 // Set the date
                 if (systemConfig->setDate(input))
@@ -175,7 +195,7 @@ dateTimeMenu()
 
             case TIMEZONE:
                 timezoneSelection = dateTimeMenu.get(tzData);
-                if (timezoneSelection != UI_EXIT) {
+                if (timezoneSelection != UI::UI_EXIT) {
                     systemConfig->setTimezone(tzData.get(timezoneSelection, 1));   // Row = timezoneSelection, Column = 1
                     notify.show("Timezone set!", 2000, false);
                 }
@@ -196,10 +216,10 @@ alarmMenu()
 {
     using namespace MENUDATA::ALARM_m;
 
-    ListSelection alarmMenu;
-    TextInput textInput;
-    FileBrowser* fileBrowser = new FileBrowser();
-    SystemMessage notify;
+    UI::ListSelection alarmMenu;
+    UI::TextInput textInput;
+    UI::FileBrowser* fileBrowser = new UI::FileBrowser();
+    UI::SystemMessage notify;
     MediaData mediadata;
     std::string input = "";
     items selection;
@@ -220,7 +240,7 @@ alarmMenu()
 
             case SET:
 
-                input = textInput.get("Time: (HH:MM:SS)", systemConfig->getAlarmTime().c_str(), 8, INPUT_FORMAT_TIME);
+                input = textInput.get("Time: (HH:MM:SS)", systemConfig->getAlarmTime().c_str(), 8, UI::INPUT_FORMAT_TIME);
 
                 // Set the alarm time
                 if (systemConfig->setAlarmTime(input))
@@ -256,8 +276,8 @@ wifiMenu()
 {
     using namespace MENUDATA::WIFI_m;
 
-    ListSelection wifiToggleMenu;
-    SystemMessage notify;
+    UI::ListSelection wifiToggleMenu;
+    UI::SystemMessage notify;
     Timer timeout;
     items selection;
 
@@ -301,8 +321,8 @@ dhcpToggleMenu()
 {
     using namespace MENUDATA::DHCP_TOGGLE_m;
 
-    ListSelection dhcpToggleMenu;
-    SystemMessage notify;
+    UI::ListSelection dhcpToggleMenu;
+    UI::SystemMessage notify;
     items selection;
 
     selection = (items) dhcpToggleMenu.get(menu, SIZE);
@@ -330,10 +350,10 @@ networkMenu()
 {
     using namespace MENUDATA::NETWORK_m;
 
-    ListSelection networkMenu;
+    UI::ListSelection networkMenu;
     Timer timeout;
-    SystemMessage notify;
-    TextInput textInput;
+    UI::SystemMessage notify;
+    UI::TextInput textInput;
     items selection;
 
     while (true) {
@@ -361,13 +381,13 @@ networkMenu()
 
                 transport->playUIsound(folder_open, folder_open_len);
                 log_i("Current SSID: %s", systemConfig->getWifiSSID().c_str());
-                systemConfig->setWifiSSID(textInput.get("SSID:", systemConfig->getWifiSSID(), 255, INPUT_FORMAT_TEXT));
+                systemConfig->setWifiSSID(textInput.get("SSID:", systemConfig->getWifiSSID(), 255, UI::INPUT_FORMAT_TEXT));
                 break;
 
             case PASSWORD:
 
                 transport->playUIsound(folder_open, folder_open_len);
-                systemConfig->setWifiPassword(textInput.get("Password:", systemConfig->getWifiPassword(), 255, INPUT_FORMAT_PASSWORD));
+                systemConfig->setWifiPassword(textInput.get("Password:", systemConfig->getWifiPassword(), 255, UI::INPUT_FORMAT_PASSWORD));
                 break;
 
             case IP_ADDRESS:
@@ -380,7 +400,7 @@ networkMenu()
                     break;
                 }
 
-                if (!systemConfig->setIP(textInput.get("IP Address", systemConfig->getIP(), 15, INPUT_FORMAT_IPADDRESS))) {
+                if (!systemConfig->setIP(textInput.get("IP Address", systemConfig->getIP(), 15, UI::INPUT_FORMAT_IPADDRESS))) {
                     notify.show("Invalid IP address!", 2000, false);
                     break;
                 }
@@ -395,7 +415,7 @@ networkMenu()
                     break;
                 }
 
-                if (!systemConfig->setNetmask(textInput.get("Netmask:", systemConfig->getNetmask(), 15, INPUT_FORMAT_IPADDRESS))) {
+                if (!systemConfig->setNetmask(textInput.get("Netmask:", systemConfig->getNetmask(), 15, UI::INPUT_FORMAT_IPADDRESS))) {
                     notify.show("Invalid netmask!", 2000, false);
                     break;
                 }
@@ -411,7 +431,7 @@ networkMenu()
                     break;
                 }
 
-                if (!systemConfig->setGateway(textInput.get("Gateway:", systemConfig->getGateway(), 15, INPUT_FORMAT_IPADDRESS))) {
+                if (!systemConfig->setGateway(textInput.get("Gateway:", systemConfig->getGateway(), 15, UI::INPUT_FORMAT_IPADDRESS))) {
                     notify.show("Invalid gateway!", 2000, false);
                     break;
                 }
@@ -427,7 +447,7 @@ networkMenu()
                     break;
                 }
 
-                if (!systemConfig->setDNS(textInput.get("DNS:", systemConfig->getDNS(), 15, INPUT_FORMAT_IPADDRESS))) {
+                if (!systemConfig->setDNS(textInput.get("DNS:", systemConfig->getDNS(), 15, UI::INPUT_FORMAT_IPADDRESS))) {
                     notify.show("Invalid DNS!", 2000, false);
                     break;
                 }
@@ -438,7 +458,7 @@ networkMenu()
                 ntpConfigMenu();
                 break;
 
-            case UI_EXIT:
+            case UI::UI_EXIT:
                 return;
                 break;
         }
@@ -450,11 +470,11 @@ ntpConfigMenu()
 {
     using namespace MENUDATA::NTP_m;
 
-    ListSelection ntpConfigMenu;
-    ListSelection timezoneMenu;
+    UI::ListSelection ntpConfigMenu;
+    UI::ListSelection timezoneMenu;
 
-    SystemMessage notify;
-    TextInput textInput;
+    UI::SystemMessage notify;
+    UI::TextInput textInput;
     std::string text;
     TableData tzData(timezones, timezones_length, timezones_num_columns);
     uint16_t timezoneSelection;
@@ -466,7 +486,7 @@ ntpConfigMenu()
         switch (selection) {
             case SERVER:
 
-                text = textInput.get("NTP Server:", systemConfig->getNTPServer(), 255, INPUT_FORMAT_SERVADDR);
+                text = textInput.get("NTP Server:", systemConfig->getNTPServer(), 255, UI::INPUT_FORMAT_SERVADDR);
                 notify.show("Setting NTP server..." + text, 0, false);
                 if (systemConfig->setNTPServer(text)) {
                     notify.show("NTP server set!", 2000, false);
@@ -477,7 +497,7 @@ ntpConfigMenu()
 
             case INTERVAL:
 
-                text = textInput.get("Interval (1-1440 min):", std::to_string(systemConfig->getNTPInterval()), 4, INPUT_FORMAT_NUMERIC);
+                text = textInput.get("Interval (1-1440 min):", std::to_string(systemConfig->getNTPInterval()), 4, UI::INPUT_FORMAT_NUMERIC);
                 if (systemConfig->setNTPInterval(atoi(text.c_str()))) {
                     notify.show("NTP interval set!", 2000, false);
                 } else {
@@ -488,7 +508,7 @@ ntpConfigMenu()
             case TIMEZONE:
 
                 timezoneSelection = timezoneMenu.get(tzData);
-                if (timezoneSelection != UI_EXIT) {
+                if (timezoneSelection != UI::UI_EXIT) {
                     systemConfig->setTimezone(tzData.get(timezoneSelection, 1)); /* Row = timezoneSelection, Column = 1 */
                     notify.show("Timezone set!", 2000, false);
                 }
@@ -505,7 +525,7 @@ ntpConfigMenu()
                 notify.show("Started update!", 2000, false);
                 break;
 
-            case UI_EXIT:
+            case UI::UI_EXIT:
                 return;
                 break;
         }
@@ -517,13 +537,13 @@ playlistEditor_mainMenu()
 {
     using namespace MENUDATA::PLAYLIST_EDITOR_m;
 
-    ListSelection playlistEditor;
-    TextInput textInput;
+    UI::ListSelection playlistEditor;
+    UI::TextInput textInput;
     std::string filename;
     std::string path;
-    FileBrowser* fileBrowser_load;
-    FileBrowser* fileBrowser_remove;
-    SystemMessage notify;
+    UI::FileBrowser* fileBrowser_load;
+    UI::FileBrowser* fileBrowser_remove;
+    UI::SystemMessage notify;
     MediaData mediadata;
     PlaylistEngine* _playlistEngine = nullptr;
     items selection;
@@ -533,9 +553,9 @@ playlistEditor_mainMenu()
     } else {
         return;
     }
-    fileBrowser_remove = new FileBrowser();
+    fileBrowser_remove = new UI::FileBrowser();
     fileBrowser_remove->setRoot(PLAYLIST_DIR);
-    fileBrowser_load = new FileBrowser();
+    fileBrowser_load = new UI::FileBrowser();
     fileBrowser_load->setRoot(PLAYLIST_DIR);
 
     while (true) {
@@ -581,7 +601,7 @@ playlistEditor_mainMenu()
                 break;
 
             case ADD:
-                filename = textInput.get("Filename:", "", 255, INPUT_FORMAT_TEXT);
+                filename = textInput.get("Filename:", "", 255, UI::INPUT_FORMAT_TEXT);
 
                 /* If the filename is empty, return */
                 if (filename.empty()) {
@@ -663,22 +683,21 @@ playlistEditor_trackMenu(PlaylistEngine* _playlistEngine)
 {
     using namespace MENUDATA::PLAYLIST_EDITOR_EDIT_m;
 
-    ListSelection playlistEditor;
-    FileBrowser* fileBrowser = nullptr;
-    SystemMessage notify;
-    TextInput textInput;
+    UI::ListSelection playlistEditor;
+    UI::FileBrowser* fileBrowser = nullptr;
+    UI::SystemMessage notify;
     MediaData mediadata;
     items selection;
     uint16_t trackSelection;
 
-    fileBrowser = new FileBrowser();
+    fileBrowser = new UI::FileBrowser();
 
     while (sdfs->isReady()) {
         selection = (items) playlistEditor.get(menu, SIZE);
 
         switch (selection) {
             case ADDTRACK:
-                
+
                 if (!sdfs->isReady()) {
                     _playlistEngine->eject();
                     notify.show("SD card error!", 2000, false);
@@ -706,7 +725,7 @@ playlistEditor_trackMenu(PlaylistEngine* _playlistEngine)
                 while (sdfs->isReady()) {
                     if (_playlistEngine && _playlistEngine->size() > 0) {
                         trackSelection = _playlistEngine->view();
-                        if (trackSelection != UI_EXIT) {
+                        if (trackSelection != UI::UI_EXIT) {
                             if (_playlistEngine->removeTrack(trackSelection)) {
                                 notify.show("Track removed!", 1000, false);
                             } else {
@@ -740,33 +759,33 @@ audioMenu()
 {
     using namespace MENUDATA::AUDIO_m;
 
-    ListSelection audioMenu;
-    ValueSelector selector_bass = ValueSelector("Bass",
+    UI::ListSelection audioMenu;
+    UI::ValueSelector selector_bass = UI::ValueSelector("Bass",
                                                 std::bind(&Transport::EqualizerController::getBass, transport->eq),
                                                 std::bind(&Transport::EqualizerController::bassUp, transport->eq),
                                                 std::bind(&Transport::EqualizerController::bassDown, transport->eq),
                                                 transport->eq->getMinBass(),
                                                 transport->eq->getMaxBass());
-    ValueSelector selector_mid = ValueSelector("Mid",
+    UI::ValueSelector selector_mid = UI::ValueSelector("Mid",
                                                std::bind(&Transport::EqualizerController::getMid, transport->eq),
                                                std::bind(&Transport::EqualizerController::midUp, transport->eq),
                                                std::bind(&Transport::EqualizerController::midDown, transport->eq),
                                                transport->eq->getMinMid(),
                                                transport->eq->getMaxMid());
-    ValueSelector selector_treble = ValueSelector("Treble",
+    UI::ValueSelector selector_treble = UI::ValueSelector("Treble",
                                                   std::bind(&Transport::EqualizerController::getTreble, transport->eq),
                                                   std::bind(&Transport::EqualizerController::trebleUp, transport->eq),
                                                   std::bind(&Transport::EqualizerController::trebleDown, transport->eq),
                                                   transport->eq->getMinTreble(),
                                                   transport->eq->getMaxTreble());
-    ValueSelector selector_sysvol = ValueSelector("UI Volume",
+    UI::ValueSelector selector_sysvol = UI::ValueSelector("UI Volume",
                                                   std::bind(&Transport::getSystemVolume, transport),
                                                   std::bind(&Transport::systemVolumeUp, transport),
                                                   std::bind(&Transport::systemVolumeDown, transport),
                                                   transport->getMinSystemVolume(),
                                                   transport->getMaxSystemVolume());
 
-    SystemMessage notify;
+    UI::SystemMessage notify;
     items selection;
 
     while (true) {
@@ -805,7 +824,7 @@ ssidScanner()
         playlistEngine->stop();
     }
 
-    SystemMessage notify;
+    UI::SystemMessage notify;
     Timer SSIDscanTimeout;
     bool reEnableWiFi = false;
 
@@ -814,16 +833,17 @@ ssidScanner()
         reEnableWiFi = true;
     }
 
-    notify.show("Scanning", 0, true);
-
     WiFi.scanDelete();
-    int16_t numNetworks = WiFi.scanNetworks(true, false);
+    WiFi.scanNetworks(true, false);
+    notify.show("Scanning", 0, true);
     log_i("Scanning for networks...");
     while (WiFi.scanComplete() == -1 || WiFi.scanComplete() == -2 && !SSIDscanTimeout.check(WIFI_CONNECTION_TIMEOUT_MS)) {
         notify.show("Scanning", 0, true);
     }
+    int16_t numNetworks = WiFi.scanComplete();
+    log_i("Scan complete! Found %d networks", numNetworks);
 
-    if (numNetworks == 0) {
+    if (numNetworks <= 0) {
         notify.show("No networks found!", 2000, false);
         log_e("No networks found during SSID scan!");
         return;
@@ -832,8 +852,8 @@ ssidScanner()
     else {
         /* Load up the SSIDs into a vector */
         std::vector<std::string> networkList;
-        // networkList.reserve(numNetworks);
         for (uint8_t i = 0; i < numNetworks && i < WIFI_MAX_DISPLAYED_NETWORKS; i++) {
+            log_i("SSID: %s", WiFi.SSID(i).c_str());
             networkList.push_back(WiFi.SSID(i).c_str());
         }
         /* Sort and remove duplicates */
@@ -844,15 +864,15 @@ ssidScanner()
         /* If the vector is left empty, return */
         if (networkList.size() == 0) {
             notify.show("No networks found!", 2000, false);
-            log_e("No networks found during SSID scan!");
+            log_e("No networks found after running filters!");
             if (reEnableWiFi)
                 systemConfig->enableWifi();
             return;
         }
-        ListSelection menu;
+        UI::ListSelection menu;
         uint16_t selection = menu.get(networkList);
 
-        if (selection != UI_EXIT) {
+        if (selection != UI::UI_EXIT) {
             systemConfig->setWifiSSID(networkList[selection]);
             notify.show("SSID selected:\n\n" + networkList[selection], 2000, false);
             log_i("Selected SSID: %s", networkList[selection].c_str());
@@ -867,7 +887,7 @@ ssidScanner()
 void
 usbMenu()
 {
-    SystemMessage notify;
+    UI::SystemMessage notify;
     if (!sdfs->isReady()) {
         notify.show("SD card error!", 2000, false);
         return;
@@ -876,9 +896,9 @@ usbMenu()
     playlistEngine->eject();
 
     USBMSC usb_msc;
-    usb_msc.vendorID("BMA");       //max 8 chars
-    usb_msc.productID("Media Player");    //max 16 chars
-    usb_msc.productRevision("1.0");  //max 4 chars
+    usb_msc.vendorID("BMA");             // max 8 chars
+    usb_msc.productID("Media Player");   // max 16 chars
+    usb_msc.productRevision("1.0");      // max 4 chars
     usb_msc.onStartStop(onStartStop);
     usb_msc.onRead(onRead);
     usb_msc.onWrite(onWrite);
@@ -889,7 +909,7 @@ usbMenu()
     USB.productName("Media Player");
     USB.serialNumber("1.0");
     USB.begin();
-    
+
     while (sdfs->isReady()) {
         notify.show("USB file transfer\nenabled. Press\nEXIT to end", 0, true);
         if (buttons->getButtonEvent(BUTTON_EXIT, SHORTPRESS)) {
@@ -912,8 +932,8 @@ bluetoothMenu()
 {
     using namespace MENUDATA::BLUETOOTH_m;
 
-    SystemMessage notify;
-    ListSelection bluetoothMenu;
+    UI::SystemMessage notify;
+    UI::ListSelection bluetoothMenu;
     items selection;
 
     while (true) {
@@ -950,10 +970,10 @@ screensaverMenu()
 {
     using namespace MENUDATA::SCREENSAVER_m;
 
-    ListSelection screensaverMenu;
-    SystemMessage notify;
+    UI::ListSelection screensaverMenu;
+    UI::SystemMessage notify;
     items selection;
-    TextInput text;
+    UI::TextInput text;
     uint16_t timeout = 0;
 
     while (true) {
@@ -977,9 +997,9 @@ screensaverMenu()
                 systemConfig->disableScreenSaver();
                 notify.show("Screensaver disabled!", 2000, false);
                 break;
-            
+
             case TIMEOUT:
-                timeout = atoi(text.get("Timeout (1s-3600s):", std::to_string(systemConfig->getScreenSaverTimeout()), 4, INPUT_FORMAT_NUMERIC).c_str());
+                timeout = atoi(text.get("Timeout (1s-3600s):", std::to_string(systemConfig->getScreenSaverTimeout()), 4, UI::INPUT_FORMAT_NUMERIC).c_str());
                 if (timeout < 1 || timeout > 3600) {
                     notify.show("Invalid timeout!\nValid values are:\n1-3600", 2000, false);
                     break;

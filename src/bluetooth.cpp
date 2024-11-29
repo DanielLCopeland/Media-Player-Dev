@@ -25,7 +25,7 @@
 
 /* Static variables */
 SoftwareSerial* Bluetooth::_bluetooth = nullptr;
-SystemMessage* Bluetooth::_systemMessage = nullptr;
+UI::SystemMessage* Bluetooth::_systemMessage = nullptr;
 bool Bluetooth::data_received = false;
 uint8_t Bluetooth::bytes_available = 0;
 char Bluetooth::_buffer[256] = { 0 };
@@ -51,7 +51,7 @@ Bluetooth::begin()
     if (_systemMessage) {
         delete _systemMessage;
     }
-    _systemMessage = new SystemMessage();
+    _systemMessage = new UI::SystemMessage();
     pinMode(BLUETOOTH_PWR, OUTPUT);
     digitalWrite(BLUETOOTH_PWR, false);
 }
@@ -80,6 +80,11 @@ Bluetooth::_onReceive()
 void
 Bluetooth::cmds(const char* const cmdArray[], const uint8_t numCmds)
 {
+    if (!_bluetooth) {
+        log_e("KCX_BT_RTX not initialized!");
+        return;
+    }
+
     /* Clear the command queue */
     while (!_cmdQueue.empty()) {
         _cmdQueue.pop();
@@ -98,6 +103,10 @@ Bluetooth::cmds(const char* const cmdArray[], const uint8_t numCmds)
 void
 Bluetooth::cmd(char* cmd)
 {
+    if (!_bluetooth) {
+        log_e("KCX_BT_RTX not initialized!");
+        return;
+    }
     log_i("KCX_BT_RTX sending: %s", cmd);
     _bluetooth->printf("%s%s", cmd, "\r\n");
 }
