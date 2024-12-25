@@ -30,7 +30,6 @@
 /* SD Card Config */
 #define SD_CONFIG SdSpiConfig(SD_CS_PIN, DEDICATED_SPI, SD_SCK_MHZ(20), &SPI)
 
-#include <Arduino.h>
 #include <SPI.h>
 #include <SdFat.h>
 #include <card_manager.h>

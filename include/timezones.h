@@ -24,8 +24,6 @@
 #ifndef timezones_h
 #define timezones_h
 
-#include <Arduino.h>
-
 const char* const timezones [] PROGMEM = {
 
     "Africa/Abidjan","GMT0",

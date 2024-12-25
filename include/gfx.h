@@ -24,8 +24,6 @@
 #ifndef gfx_h
 #define gfx_h
 
-#include <Arduino.h>
-
 /* File icons */
 
 /* 'folder', 7x7px */

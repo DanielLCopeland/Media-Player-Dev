@@ -27,7 +27,6 @@
 #include <system.h>
 #include <Adafruit_GFX.h>
 #include <Adafruit_SSD1306.h>
-#include <Arduino.h>
 #include <WiFi.h>
 #include <buttons.h>
 #include <card_manager.h>

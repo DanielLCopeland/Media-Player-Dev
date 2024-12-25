@@ -32,16 +32,15 @@ buffer is used to transfer audio data from one task to another. We use mutexes t
 #define AUDIO_BUFFER_WRITE_CHUNK 1024 * 2 /* Chunks written from the main loop */
 #define AUDIO_BUFFER_READ_CHUNK 1024 * 3 /* Chunks read by the audio task into the audio chain */
 
-#include <Arduino.h>
 #include <AudioTools.h>
-#include <AudioCodecs/AudioCodecs.h>
-#include <AudioCodecs/CodecFLAC.h>
-#include <AudioCodecs/CodecMP3Helix.h>
-#include <AudioCodecs/CodecOpusOgg.h>
-#include <AudioCodecs/CodecWAV.h>
-#include <AudioTools/MusicalNotes.h>
-#include <AudioLibs/AudioRealFFT.h>
-#include <Concurrency/Concurrency.h>
+#include <AudioTools/AudioCodecs/AudioCodecs.h>
+#include <AudioTools/AudioCodecs/CodecFLAC.h>
+#include <AudioTools/AudioCodecs/CodecMP3Helix.h>
+#include <AudioTools/AudioCodecs/CodecOpusOgg.h>
+#include <AudioTools/AudioCodecs/CodecWAV.h>
+#include <AudioTools/CoreAudio/MusicalNotes.h>
+#include <AudioTools/AudioLibs/AudioRealFFT.h>
+#include <AudioTools/Concurrency/All.h>
 #include <SdFat.h>
 #include <WiFi.h>
 #include <system.h>

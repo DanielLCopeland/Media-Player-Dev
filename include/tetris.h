@@ -1,12 +1,4 @@
 /**
- * @file tetris.h
- *
- * @author Dan Copeland
- *
- * @brief Tetris game header file
- */
- 
-/*
  * Licensed under GPL v3.0
  *
  * This program is free software: you can redistribute it and/or modify
@@ -21,6 +13,14 @@
  *
  * You should have received a copy of the GNU General Public License
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
+ * 
+ * @file tetris.h
+ * @author Daniel Copeland
+ * @brief 
+ * @date 2024-11-29
+ * 
+ * @copyright Copyright (c) 2024
+ * 
  */
 
 #ifndef tetris_h
@@ -250,22 +250,22 @@ enum Constants : uint16_t
      * looks sharp with no aliasing artifacts. */
 
     /** 
-     * @brief Viewport x coordinate for the upper left corner after rotation 
+     * @brief Viewport x coordinate for the upper left corner
      */
     VIEWPORT_X1 = 0,
 
     /** 
-     * @brief Viewport y coordinate for the upper left corner after rotation 
+     * @brief Viewport y coordinate for the upper left corner 
      */
     VIEWPORT_Y1 = 0,
 
     /** 
-     * @brief Viewport x coordinate for the lower right corner after rotation 
+     * @brief Viewport x coordinate for the lower right corner
      */
     VIEWPORT_X2 = 100,
 
     /**
-     * @brief Viewport y coordinate for the lower right corner after rotation 
+     * @brief Viewport y coordinate for the lower right corner 
      */
     VIEWPORT_Y2 = 32,
 
@@ -282,7 +282,7 @@ enum Constants : uint16_t
     /** 
      * @brief The number of pieces to queue up 
      */
-    PIECE_QUEUE_SIZE = 7
+    PIECE_QUEUE_SIZE = 5
 };
 
 /**
@@ -411,8 +411,6 @@ class Tetris
     uint16_t border_height;
     uint16_t border_width;
     std::vector<std::vector<bool>> playField;
-    Piece currentPiece;
-    Piece nextPiece;
     uint32_t score = 0;
     bool checkCollision(Piece& piece, Tetris_Data::Direction direction);
     void draw();
@@ -452,6 +450,8 @@ class Tetris
     void generateNextPiece();
 
     UI::SystemMessage systemMessage;
+    Piece currentPiece;
+    Piece nextPiece;
 };
 
 #endif

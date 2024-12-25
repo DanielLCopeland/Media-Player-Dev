@@ -66,7 +66,6 @@ Transport::begin()
     /* Configure decoder objects */
     log_i("Creating decoder objects");
     mp3_decoder.setOutput(output);
-    mp3_decoder.setFilterMetaData(false);
     flac_decoder.setOutput(output);
     wav_decoder.setOutput(output);
     opus_decoder.setOutput(output);
@@ -815,6 +814,7 @@ Transport::SpectrumAnalyzer::decayPeaks()
  *
  ****************************************************/
 
+//FIXME: cast to float before division
 void
 Transport::EqualizerController::setBass(uint8_t bass)
 {

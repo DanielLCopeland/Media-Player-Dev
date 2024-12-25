@@ -4,7 +4,7 @@
  * @brief Main entry point for the core program
  *
  * @author Dan Copeland
- * 
+ *
  * Dedicated to the memory of my father, Byron D. Copeland, who passed away
  * on September 14, 2024, and who started me on this journey of discovery and
  * learning so many decades ago.  I miss you, Dad.
@@ -26,36 +26,38 @@
  */
 
 #define SDFAT_FILE_TYPE 3
-#include <stdint.h>
-#include <string.h>
 #include <Adafruit_GFX.h>
 #include <Adafruit_SSD1306.h>
-#include <Arduino.h>
+#include <ESPAsyncWebServer.h>
 #include <SdFat.h>
-#include <callbacks.h>
-#include <bluetooth.h>
-#include <card_manager.h>
 #include <Wire.h>
+#include <bluetooth.h>
 #include <buttons.h>
+#include <callbacks.h>
+#include <card_manager.h>
+#include <file_explorer.h>
 #include <functional>
 #include <menu.h>
 #include <playlist_engine.h>
+#include <screensaver.h>
+#include <sqlite3.h>
+#include <stdint.h>
+#include <string.h>
 #include <system.h>
 #include <transport.h>
-#include <screensaver.h>
 #include <ui/common.h>
 #include <ui_sounds.h>
-#include <ESPAsyncWebServer.h>
+#include <vfs.h>
 
-SET_LOOP_TASK_STACK_SIZE(16*1024); // 16KB
+SET_LOOP_TASK_STACK_SIZE(16 * 1024); /* 16KB */
 
 /* Display config */
 #define DISPLAY_DATA_PIN  40
 #define DISPLAY_CLOCK_PIN 41
-#define SCREEN_WIDTH   128
-#define SCREEN_HEIGHT  32
-#define OLED_RESET     -1
-#define SCREEN_ADDRESS 0x3C    
+#define SCREEN_WIDTH      128
+#define SCREEN_HEIGHT     32
+#define OLED_RESET        -1
+#define SCREEN_ADDRESS    0x3C
 
 /**
  * The following global singleton objects represent various physical components
@@ -65,16 +67,16 @@ SET_LOOP_TASK_STACK_SIZE(16*1024); // 16KB
  * should the device be lost or stolen.
  */
 
-Bluetooth *bluetooth = nullptr;           /* Bluetooth module */
+Bluetooth* bluetooth = nullptr;           /* Bluetooth module */
 CardManager* sdfs = nullptr;              /* SD card controller */
 Buttons* buttons = nullptr;               /* Buttons */
 Adafruit_SSD1306* display = nullptr;      /* Display */
 Screensaver* screensaver = nullptr;       /* Screensaver */
 SystemConfig* systemConfig = nullptr;     /* System configuration */
 Transport* transport = nullptr;           /* Transport controls (play, pause, stop, load, etc) */
-UI::StatusScreen* statusScreen = nullptr;     /* Status screen */
-UI::FileBrowser* filebrowser = nullptr;       /* File browser */
-UI::SystemMessage* notify = nullptr;          /* System messages */
+UI::StatusScreen* statusScreen = nullptr; /* Status screen */
+UI::FileBrowser* filebrowser = nullptr;   /* File browser */
+UI::SystemMessage* notify = nullptr;      /* System messages */
 PlaylistEngine* playlistEngine = nullptr; /* Playlist engine */
 AsyncWebServer* server = nullptr;         /* Web server */
 
@@ -95,12 +97,15 @@ checkButtons()
                 if (wasPlaying) {
                     transport->play();
                 }
-
             }
         }
 
         else {
             if (transport->getStatus() != TRANSPORT_CONNECTING) {
+
+                File_Explorer fileExplorer;
+                fileExplorer.init();
+
                 MediaData mediadata = filebrowser->get();
 
                 if (mediadata.loaded) {
@@ -170,11 +175,11 @@ checkButtons()
         else {
             /* Create a ValueSelector object to adjust the volume using callbacks to the transport */
             UI::ValueSelector* volumeSelector = new UI::ValueSelector("Volume",
-                                                              std::bind(&Transport::getVolume, transport),
-                                                              std::bind(&Transport::volumeUp, transport),
-                                                              std::bind(&Transport::volumeDown, transport),
-                                                              transport->getMinVolume(),
-                                                              transport->getMaxVolume());
+                                                                      std::bind(&Transport::getVolume, transport),
+                                                                      std::bind(&Transport::volumeUp, transport),
+                                                                      std::bind(&Transport::volumeDown, transport),
+                                                                      transport->getMinVolume(),
+                                                                      transport->getMaxVolume());
             volumeSelector->get();
             delete volumeSelector;
         }
@@ -198,11 +203,11 @@ checkButtons()
         else {
             /* Create a ValueSelector object to adjust the volume using callbacks to the transport */
             UI::ValueSelector* volumeSelector = new UI::ValueSelector("Volume",
-                                                              std::bind(&Transport::getVolume, transport),
-                                                              std::bind(&Transport::volumeUp, transport),
-                                                              std::bind(&Transport::volumeDown, transport),
-                                                              transport->getMinVolume(),
-                                                              transport->getMaxVolume());
+                                                                      std::bind(&Transport::getVolume, transport),
+                                                                      std::bind(&Transport::volumeUp, transport),
+                                                                      std::bind(&Transport::volumeDown, transport),
+                                                                      transport->getMinVolume(),
+                                                                      transport->getMaxVolume());
             volumeSelector->get();
             delete volumeSelector;
         }
@@ -232,6 +237,10 @@ checkButtons()
 void
 setup()
 {
+    /* Register custom VFS using SdFat as the backend */
+    esp_vfs_register("/sdfat", &sdfat_vfs, NULL);
+    sqlite3_initialize();
+
     Serial.begin(115200);
     log_i("This software is licensed under the GNU Public License v3.0");
     log_i("Free heap: %d", ESP.getFreeHeap());
@@ -272,13 +281,13 @@ setup()
         for (;;)
             ;
     }
-   
+
     systemConfig = new SystemConfig();
     transport = new Transport();
     playlistEngine = new PlaylistEngine(std::function<bool(MediaData)>(std::bind(&Transport::load, transport, std::placeholders::_1)),
                                         std::function<bool()>(std::bind(&Transport::play, transport)),
                                         std::function<void()>(std::bind(&Transport::stop, transport)),
-                                        std::function<uint8_t()>(std::bind(&Transport::getStatus, transport)));    
+                                        std::function<uint8_t()>(std::bind(&Transport::getStatus, transport)));
     notify = new UI::SystemMessage();
     screensaver = new Screensaver();
     transport->begin();
@@ -289,10 +298,9 @@ setup()
     filebrowser = new UI::FileBrowser();
     notify->show("Starting system...", 0, false);
     bluetooth = new Bluetooth();
-    vTaskDelay(1000 / portTICK_PERIOD_MS);
     bluetooth->begin();
     bluetooth->powerOff();
-    
+
     /* WiFi event callbacks */
     WiFiEventId_t wifiDisconnected = WiFi.onEvent(onWifiDisconnected, WiFiEvent_t::ARDUINO_EVENT_WIFI_STA_DISCONNECTED);
     WiFiEventId_t wifiConnected = WiFi.onEvent(onWifiConnected, WiFiEvent_t::ARDUINO_EVENT_WIFI_STA_CONNECTED);
@@ -301,13 +309,33 @@ setup()
 
     /* Event handler for when we cannot connect to the network */
     WiFiEventId_t wifiConnectFailed = WiFi.onEvent(onWifiFailed, WiFiEvent_t::ARDUINO_EVENT_WIFI_STA_START);
-
-    /* Start the web server */
-    //server = new AsyncWebServer(80);
-    //server->on("/", HTTP_GET, [](AsyncWebServerRequest *request) {
-    //    request->send(200, "text/plain", "Hello, world!");
-    //});
-
+    sqlite3* db;
+    int rc = sqlite3_open("/sdfat/2000.db", &db);
+    if (rc != SQLITE_OK) {
+        log_e("Failed to open database file");
+        log_e("Error: %s", sqlite3_errmsg(db));
+    }
+    char* data = NULL;
+    rc = sqlite3_exec(
+      db,
+      "Select * from surnames where name = 'MICHELLE'",
+      [](void* data, int argc, char** argv, char** azColName) -> int {
+          int i;
+          log_i("Callback function called");
+          for (i = 0; i < argc; i++) {
+              Serial.printf("%s = %s\n", azColName[i], argv[i] ? argv[i] : "NULL");
+          }
+          Serial.printf("\n");
+          return 0;
+      },
+      (void*) data,
+      NULL);
+    if (rc != SQLITE_OK) {
+        log_e("Failed to execute SQL statement");
+        log_e("Error: %s", sqlite3_errmsg(db));
+    }
+    sqlite3_close(db);
+      
 }
 
 void

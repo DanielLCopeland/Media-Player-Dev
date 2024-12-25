@@ -24,7 +24,6 @@
 #ifndef bluetooth_h
 #define bluetooth_h
 
-#include <Arduino.h>
 #include <SoftwareSerial.h>
 #include <buttons.h>
 #include <queue>

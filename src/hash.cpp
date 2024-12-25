@@ -25,7 +25,8 @@
 
 #include <hash.h>
 
-Hash::Hash(uint32_t* data) : _data(data)
+Hash::Hash(uint32_t* data)
+  : _data(data)
 
 {
 }
@@ -38,7 +39,7 @@ Hash::get()
     uint32_t hash = len, tmp;
     uint8_t rem;
 
-    if (_data == NULL)
+    if (_data == nullptr)
         return 0;
 
     rem = len & 3;
@@ -83,7 +84,15 @@ Hash::get()
     return hash;
 }
 
-uint32_t Hash::salted(uint32_t salt)
+uint32_t
+Hash::salted(uint32_t salt)
 {
     return get() ^ salt;
+}
+
+uint32_t
+hash(uint32_t* data)
+{
+    Hash hash(data);
+    return hash.get();
 }

@@ -26,7 +26,7 @@
 Filesystem::Filesystem()
 {
     /* Check if the SD card is present */
-    if (sdfs->isReady()) {
+    if (sdfs->isReady()) { 
         openDir({ "/", "/", "", FILETYPE_DIR, 0, LOCAL_FILE, false });
         cwd.reserve(SUBDIRECTORY_LIMIT);
 

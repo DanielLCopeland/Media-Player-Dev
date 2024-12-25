@@ -1,12 +1,4 @@
 /**
- * @file tetris.cpp
- *
- * @brief Tetris game implementation
- *
- * @author Dan Copeland
- */
-
-/*
  * Licensed under GPL v3.0
  *
  * This program is free software: you can redistribute it and/or modify
@@ -21,6 +13,15 @@
  *
  * You should have received a copy of the GNU General Public License
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
+ * 
+ * @file tetris.cpp
+ * @author Daniel Copeland
+ * @brief 
+ * @date 2024-11-29
+ * 
+ * @copyright Copyright (c) 2024
+ * 
+ *
  */
 
 #include <tetris.h>
@@ -98,7 +99,10 @@ Tetris::Tetris()
             }
             pieceQueue[i].loadShape(seed++);
         }
+        pieceQueue[i].setRotation(Tetris_Data::Constants::GAME_ROTATION);
     }
+    currentPiece = pieceQueue[0];
+    nextPiece = pieceQueue[1];
 };
 
 void
@@ -209,8 +213,8 @@ Tetris::run()
                 }
 
                 /* Load the next piece */
-                currentPiece = nextPiece;
-                nextPiece.loadShape(millis());
+                //currentPiece = nextPiece;
+                //nextPiece.loadShape(millis());
                 gameTick.reset();
                 generateNextPiece();
             }
@@ -417,10 +421,10 @@ Tetris::reset()
     }
     score = 0;
     /* Load the first piece */
-    currentPiece.loadShape(millis());
-    currentPiece.setRotation(Tetris_Data::Constants::GAME_ROTATION);
-    nextPiece.loadShape(millis() + 1);
-    nextPiece.setRotation(Tetris_Data::Constants::GAME_ROTATION);
+    //currentPiece->loadShape(millis());
+    //currentPiece->setRotation(Tetris_Data::Constants::GAME_ROTATION);
+    //nextPiece->loadShape(millis() + 1);
+    //nextPiece->setRotation(Tetris_Data::Constants::GAME_ROTATION);
 }
 
 void
@@ -565,9 +569,10 @@ Tetris::generateNextPiece()
     piece.loadShape(seed);
     pieceQueue.push_back(piece);
     while (true) {
+        serviceLoop();
         bool unique = true;
         for (uint8_t j = 0; j < pieceQueue.size() - 1; j++) {
-            if (pieceQueue[pieceQueue.size() - 1].getID() == pieceQueue[j].getID()) {
+            if (pieceQueue.back().getID() == pieceQueue[j].getID()) {
                 unique = false;
                 break;
             }
@@ -577,4 +582,7 @@ Tetris::generateNextPiece()
         }
         piece.loadShape(seed++);
     }
+    pieceQueue.back().setRotation(Tetris_Data::Constants::GAME_ROTATION);
+    currentPiece = pieceQueue[0];
+    nextPiece = pieceQueue[1];
 }

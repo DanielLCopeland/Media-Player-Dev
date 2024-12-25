@@ -28,16 +28,15 @@
 #define PLAYLIST_DIR "/playlists"
 #endif
 
-#include <Arduino.h>
 #include <Preferences.h>
 #include <WiFi.h>
+#include <bluetooth.h>
+#include <card_manager.h>
 #include <esp_sntp.h>
 #include <playlist_engine.h>
+#include <screensaver.h>
 #include <time.h>
 #include <transport.h>
-#include <card_manager.h>
-#include <bluetooth.h>
-#include <screensaver.h>
 
 enum file_type
 {
@@ -78,16 +77,18 @@ class MediaData
     std::string filename;
     std::string path;
     std::string url;
-    uint8_t type;   /* MP3, WAV, FLAC, OGG, M3U, or DIR */
+    uint8_t type; /* MP3, WAV, FLAC, OGG, M3U, or DIR */
     uint16_t port;
     uint8_t source;         // LOCAL_FILE or REMOTE_FILE
-    bool loaded;         // whether or not the struct is loaded with an actual media
+    bool loaded;            // whether or not the struct is loaded with an actual media
                             // source or is empty
     uint32_t nextElement;   // This is a pointer to the next element in the index
                             // file. Functions like a linked list.
 
     // Used to store temporary strings so we don't invalidate any pointers to them
     std::string buffer;
+
+    MediaData operator&(const MediaData& other) const { return MediaData(other); }
 
     MediaData(std::string filename, std::string path, std::string url, uint8_t type, uint16_t port, uint8_t source, bool loaded)
       : filename(filename)
@@ -224,7 +225,7 @@ class TableData
 {
   public:
     TableData(const char* const table[], size_t const length, size_t columns)
-    {   /* Specify the column count in "columns" */
+    { /* Specify the column count in "columns" */
         this->table = table;
         this->columns = columns;
         this->length = length / columns;
@@ -276,19 +277,39 @@ class SystemConfig
     struct tm getDateTime();
 
     /* Audio settings */
-    void setVolume(uint8_t volume) { this->volume = volume; preferences->putInt("volume", volume);}
+    void setVolume(uint8_t volume)
+    {
+        this->volume = volume;
+        preferences->putInt("volume", volume);
+    }
     uint8_t getVolume() { return volume; }
 
-    void setSystemVolume(uint8_t volume) { system_volume = volume; preferences->putInt("system_volume", volume);}
+    void setSystemVolume(uint8_t volume)
+    {
+        system_volume = volume;
+        preferences->putInt("system_volume", volume);
+    }
     uint8_t getSystemVolume() { return system_volume; }
 
-    void setBass(uint8_t bass) { eq_bass = bass; preferences->putInt("eq_bass", bass);}
+    void setBass(uint8_t bass)
+    {
+        eq_bass = bass;
+        preferences->putInt("eq_bass", bass);
+    }
     uint8_t getBass() { return eq_bass; }
 
-    void setMid(uint8_t mid) { eq_mid = mid; preferences->putInt("eq_mid", mid);}
+    void setMid(uint8_t mid)
+    {
+        eq_mid = mid;
+        preferences->putInt("eq_mid", mid);
+    }
     uint8_t getMid() { return eq_mid; }
 
-    void setTreble(uint8_t treble) { eq_treble = treble; preferences->putInt("eq_treble", treble);}
+    void setTreble(uint8_t treble)
+    {
+        eq_treble = treble;
+        preferences->putInt("eq_treble", treble);
+    }
     uint8_t getTreble() { return eq_treble; }
 
     bool isWifiEnabled();
@@ -306,12 +327,27 @@ class SystemConfig
     bool isAlarmEnabled();
     bool isAlarmTriggered();
     bool isScreenSaverEnabled() { return screensaver_enabled; }
-    void setScreenSaverTimeout(uint16_t timeout) { screensaver_timeout = timeout; preferences->putInt("scrnsvr_timeout", timeout); screensaver->set_timeout(timeout); }
+    void setScreenSaverTimeout(uint16_t timeout)
+    {
+        screensaver_timeout = timeout;
+        preferences->putInt("scrnsvr_timeout", timeout);
+        screensaver->set_timeout(timeout);
+    }
     uint16_t getScreenSaverTimeout() { return screensaver_timeout; }
-    void enableScreenSaver() { screensaver_enabled = true; preferences->putBool("scrnsvr_enabled", true); screensaver->enable(); }
-    void disableScreenSaver() { screensaver_enabled = false; preferences->putBool("scrnsvr_enabled", false); screensaver->disable(); }
+    void enableScreenSaver()
+    {
+        screensaver_enabled = true;
+        preferences->putBool("scrnsvr_enabled", true);
+        screensaver->enable();
+    }
+    void disableScreenSaver()
+    {
+        screensaver_enabled = false;
+        preferences->putBool("scrnsvr_enabled", false);
+        screensaver->disable();
+    }
 
-    void resetPreferences();   /* Factory defaults */
+    void resetPreferences(); /* Factory defaults */
 
   private:
     bool wifi_enabled;
@@ -338,14 +374,14 @@ class SystemConfig
     bool alarm_enabled = false;
     bool alarm_triggered = false;
     struct tm alarm_dateTime;
-    MediaData alarm_media;   /* Local file/Playlist */
+    MediaData alarm_media; /* Local file/Playlist */
 
     bool validateIPString(std::string ip);
 
     Preferences* preferences;
 };
 
-void serviceLoop();  /* This function is called in the main loop and in most other loops
-                        to handle system services such as Bluetooth, audio playback, etc. */
+void serviceLoop(); /* This function is called in the main loop and in most other loops
+                       to handle system services such as Bluetooth, audio playback, etc. */
 
 #endif

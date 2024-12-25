@@ -29,7 +29,6 @@
 #ifndef playlist_engine_h
 #define playlist_engine_h
 
-#include <Arduino.h>
 #include <SdFat.h>
 #include <functional>
 #include <regex>

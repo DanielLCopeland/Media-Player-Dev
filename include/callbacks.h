@@ -24,7 +24,6 @@
 #ifndef callbacks_h
 #define callbacks_h
 
-#include <Arduino.h>
 #include <SPI.h>
 #include <SdFat.h>
 #include <USB.h>

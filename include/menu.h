@@ -24,7 +24,6 @@
 #ifndef menu_h
 #define menu_h
 
-#include <Arduino.h>
 #include <USBMSC.h>
 #include <buttons.h>
 #include <data.h>

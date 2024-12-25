@@ -22,10 +22,10 @@
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-#include <Arduino.h>
-
 #ifndef hash_h
 #define hash_h
+
+#include <stdint.h>
 
 #ifndef get16bits
 #define get16bits(d) ((((uint32_t) (((const uint8_t*) (d))[1])) << 8) + (uint32_t) (((const uint8_t*) (d))[0]))
@@ -46,5 +46,11 @@ class Hash
   private:
     uint32_t *_data;
 };
+
+/**
+ * @brief Standalone function
+ * 
+ */
+uint32_t hash(uint32_t* data);
 
 #endif

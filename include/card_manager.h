@@ -31,7 +31,6 @@
 #define SD_CS_PIN 38
 #define SD_CONFIG SdSpiConfig(SD_CS_PIN, DEDICATED_SPI, SD_SCK_MHZ(20), &SPI)
 
-#include <Arduino.h>
 #include <SdFat.h>
 #include <transport.h>
 
