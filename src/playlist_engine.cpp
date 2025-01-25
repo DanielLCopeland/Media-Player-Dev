@@ -62,7 +62,7 @@ PlaylistEngine::load(MediaData playlist)
     }
 
     /* Attempt to open the playlist file */
-    if (!sdfs->isReady() || !file.open(playlist.getPath())) {
+    if (!Card_Manager::get_handle()->isReady() || !file.open(playlist.getPath())) {
         eject();
         return false;
     }
@@ -129,8 +129,8 @@ have to deal with any possible carriage returns in the file.
 bool
 PlaylistEngine::getTrackList()
 {
-    if (sdfs->isReady() && _playlist) {
-        if (sdfs->exists(_playlist->getPath())) {
+    if (Card_Manager::get_handle()->isReady() && _playlist) {
+        if (Card_Manager::get_handle()->exists(_playlist->getPath())) {
             file.open(_playlist->getPath());
         } else {
             eject();
@@ -145,7 +145,7 @@ PlaylistEngine::getTrackList()
     file.seek(0);
     std::string line;
 
-    while (sdfs->isReady() && file.available()) {
+    while (Card_Manager::get_handle()->isReady() && file.available()) {
 
         if (trackList.size() >= PLAYLIST_TRACK_LIMIT) {
             break;
@@ -171,7 +171,7 @@ PlaylistEngine::getTrackList()
         file.seek(file.position() + 1);
     }
     log_d("PlaylistEngine: Found %d tracks", trackList.size());
-    if (!sdfs->isReady()) {
+    if (!Card_Manager::get_handle()->isReady()) {
         log_e("PlaylistEngine: SD card not ready");
         eject();
         return false;
@@ -183,7 +183,7 @@ PlaylistEngine::getTrackList()
 MediaData
 PlaylistEngine::getTrack(size_t track)
 {
-    if (!sdfs->isReady()) {
+    if (!Card_Manager::get_handle()->isReady()) {
         log_e("PlaylistEngine: SD card not ready");
         eject();
         return { "", "", "", FILETYPE_UNKNOWN, 0, NO_SOURCE_LOADED, false };
@@ -195,7 +195,7 @@ PlaylistEngine::getTrack(size_t track)
 
     if (_playlist) {
         if (_playlist) {
-            if (sdfs->exists(_playlist->getPath())) {
+            if (Card_Manager::get_handle()->exists(_playlist->getPath())) {
                 file.open(_playlist->getPath());
             }
         } else {
@@ -206,7 +206,7 @@ PlaylistEngine::getTrack(size_t track)
 
     file.seek(trackList[track].startPointer);
     std::string line;
-    while (sdfs->isReady() && (char) file.peek() != '\n' && file.available()) {
+    while (Card_Manager::get_handle()->isReady() && (char) file.peek() != '\n' && file.available()) {
         line += (char) file.read();
     }
 
@@ -223,16 +223,16 @@ PlaylistEngine::getTrack(size_t track)
         std::string filename = line.substr(line.find_last_of("/") + 1);
         std::string ext = filename.substr(filename.find_last_of(".") + 1);
 
-        if (sdfs->isReady() && ext == "mp3") {
+        if (Card_Manager::get_handle()->isReady() && ext == "mp3") {
             file.close();
             return { filename, path, "", FILETYPE_MP3, 0, LOCAL_FILE, true };
-        } else if (sdfs->isReady() && ext == "flac") {
+        } else if (Card_Manager::get_handle()->isReady() && ext == "flac") {
             file.close();
             return { filename, path, "", FILETYPE_FLAC, 0, LOCAL_FILE, true };
-        } else if (sdfs->isReady() && ext == "wav") {
+        } else if (Card_Manager::get_handle()->isReady() && ext == "wav") {
             file.close();
             return { filename, path, "", FILETYPE_WAV, 0, LOCAL_FILE, true };
-        } else if (sdfs->isReady() && ext == "ogg") {
+        } else if (Card_Manager::get_handle()->isReady() && ext == "ogg") {
             file.close();
             return { filename, path, "", FILETYPE_OGG, 0, LOCAL_FILE, true };
         }
@@ -327,7 +327,7 @@ void
 PlaylistEngine::loop()
 {
 
-    if (!sdfs->isReady() && !enabled || trackList.size() == 0 || !_playlist || playing == false) {
+    if (!Card_Manager::get_handle()->isReady() && !enabled || trackList.size() == 0 || !_playlist || playing == false) {
         return;
     }
 
@@ -375,7 +375,7 @@ PlaylistEngine::removeTrack(size_t track)
         return false;
     }
 
-    if (!sdfs->isReady() || !_playlist) {
+    if (!Card_Manager::get_handle()->isReady() || !_playlist) {
         return false;
     }
 
@@ -386,19 +386,19 @@ PlaylistEngine::removeTrack(size_t track)
     /* Open a dir file to get the path */
     FsFile dir;
     std::string path = _playlist->path;
-    if (!sdfs->isReady() || !dir.open(path.c_str())) {
+    if (!Card_Manager::get_handle()->isReady() || !dir.open(path.c_str())) {
         log_e("PlaylistEngine: could not open directory");
         return false;
     }
 
     if (_playlist) {
 
-        if (!sdfs->isReady() || !tempFile.open(&dir, TEMP_FILE, O_RDWR | O_TRUNC | O_CREAT)) {
+        if (!Card_Manager::get_handle()->isReady() || !tempFile.open(&dir, TEMP_FILE, O_RDWR | O_TRUNC | O_CREAT)) {
             log_e("PlaylistEngine: could not open temp file");
             return false;
         }
 
-        if (sdfs->isReady() && dir.exists(_playlist->filename.c_str())) {
+        if (Card_Manager::get_handle()->isReady() && dir.exists(_playlist->filename.c_str())) {
             file.open(&dir, _playlist->filename.c_str(), O_RDONLY);
         } else {
             log_e("PlaylistEngine: could not open playlist file");
@@ -415,7 +415,7 @@ PlaylistEngine::removeTrack(size_t track)
     std::string line;
     size_t trackCount = 0;
 
-    while (sdfs->isReady() && file.available()) {
+    while (Card_Manager::get_handle()->isReady() && file.available()) {
 
         line.clear();
 
@@ -431,10 +431,10 @@ PlaylistEngine::removeTrack(size_t track)
             continue;
         }
 
-        while (sdfs->isReady() && (char) file.peek() != '\n' && file.available()) {
+        while (Card_Manager::get_handle()->isReady() && (char) file.peek() != '\n' && file.available()) {
             line += (char) file.read();
         }
-        if (!sdfs->isReady()) {
+        if (!Card_Manager::get_handle()->isReady()) {
             log_e("PlaylistEngine: SD card not ready");
             tempFile.close();
             eject();
@@ -483,7 +483,7 @@ PlaylistEngine::addTrack(MediaData track)
         return false;
     }
 
-    if (!sdfs->isReady() || !_playlist) {
+    if (!Card_Manager::get_handle()->isReady() || !_playlist) {
         return false;
     }
 

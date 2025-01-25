@@ -38,7 +38,6 @@
 #include <vector>
 #include <queue>
 
-extern Buttons* buttons;
 extern Adafruit_SSD1306* display;
 
 /**

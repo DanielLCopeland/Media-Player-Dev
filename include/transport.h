@@ -23,14 +23,14 @@
 
 #ifndef transport_h
 #define transport_h
-#define CONNECTION_TIMEOUT_MS 4000
+#define CONNECTION_TIMEOUT_MS       4000
 #define PLAYTIME_UPDATE_INTERVAL_MS 1000
 
 /* Audio buffer size in bytes. Decrease this if you have memory issues, increase if you have audio issues. This
 buffer is used to transfer audio data from one task to another. We use mutexes to prevent data corruption. */
-#define AUDIO_BUFFER_SIZE 1024 * 32
+#define AUDIO_BUFFER_SIZE        1024 * 32
 #define AUDIO_BUFFER_WRITE_CHUNK 1024 * 2 /* Chunks written from the main loop */
-#define AUDIO_BUFFER_READ_CHUNK 1024 * 3 /* Chunks read by the audio task into the audio chain */
+#define AUDIO_BUFFER_READ_CHUNK  1024 * 3 /* Chunks read by the audio task into the audio chain */
 
 #include <AudioTools.h>
 #include <AudioTools/AudioCodecs/AudioCodecs.h>
@@ -38,9 +38,9 @@ buffer is used to transfer audio data from one task to another. We use mutexes t
 #include <AudioTools/AudioCodecs/CodecMP3Helix.h>
 #include <AudioTools/AudioCodecs/CodecOpusOgg.h>
 #include <AudioTools/AudioCodecs/CodecWAV.h>
-#include <AudioTools/CoreAudio/MusicalNotes.h>
 #include <AudioTools/AudioLibs/AudioRealFFT.h>
 #include <AudioTools/Concurrency/All.h>
+#include <AudioTools/CoreAudio/MusicalNotes.h>
 #include <SdFat.h>
 #include <WiFi.h>
 #include <system.h>
@@ -84,15 +84,25 @@ enum filter_constants
 };
 
 class MediaData;
-class SystemConfig;
-
-extern SystemConfig* systemConfig;
+class Config_Manager;
 
 class Transport
 {
-  public:
+  private:
     Transport();
-    void begin();   /* Starts the stream and audio objects */
+    ~Transport();
+    static Transport* _handle;
+
+  public:
+    Transport(Transport const&) = delete;
+    static Transport* get_handle()
+    {
+        if (!_handle) {
+            _handle = new Transport();
+        }
+        return _handle;
+    }
+    void begin(); /* Starts the stream and audio objects */
     bool load(MediaData media);
     bool play();
     void playUIsound(const unsigned char* uiSound, size_t length);
@@ -111,22 +121,22 @@ class Transport
     void resetMetadata();
     void loop();
 
-    uint8_t getStatus();          /* returns the current status of the transport (PLAYING, PAUSED, STOPPED, or IDLE) */
-    MediaData getLoadedMedia();   /* returns the data of the currently loaded media */
+    uint8_t getStatus();        /* returns the current status of the transport (PLAYING, PAUSED, STOPPED, or IDLE) */
+    MediaData getLoadedMedia(); /* returns the data of the currently loaded media */
 
-    void volumeUp();                  /* Increases the volume by 2, up to a maximum of 100 */
-    void volumeDown();                /* Decreases the volume by 2, down to a minimum of 0 */
-    uint8_t getVolume();              /* Returns the current volume level */
-    void setVolume(uint8_t volume);   /* Sets the volume level */
-    uint8_t getMinVolume();           /* Returns the minimum volume level */
-    uint8_t getMaxVolume();           /* Returns the maximum volume level */
+    void volumeUp();                /* Increases the volume by 2, up to a maximum of 100 */
+    void volumeDown();              /* Decreases the volume by 2, down to a minimum of 0 */
+    uint8_t getVolume();            /* Returns the current volume level */
+    void setVolume(uint8_t volume); /* Sets the volume level */
+    uint8_t getMinVolume();         /* Returns the minimum volume level */
+    uint8_t getMaxVolume();         /* Returns the maximum volume level */
 
-    void systemVolumeUp();                  /* Increases the system volume by 2, up to a maximum of 100 */
-    void systemVolumeDown();                /* Decreases the system volume by 2, down to a minimum of 0 */
-    uint8_t getSystemVolume();        /* Returns the current system volume level */
-    void setSystemVolume(uint8_t volume);   /* Sets the system volume level */
-    uint8_t getMinSystemVolume();          /* Returns the minimum system volume level */
-    uint8_t getMaxSystemVolume();          /* Returns the maximum system volume level */
+    void systemVolumeUp();                /* Increases the system volume by 2, up to a maximum of 100 */
+    void systemVolumeDown();              /* Decreases the system volume by 2, down to a minimum of 0 */
+    uint8_t getSystemVolume();            /* Returns the current system volume level */
+    void setSystemVolume(uint8_t volume); /* Sets the system volume level */
+    uint8_t getMinSystemVolume();         /* Returns the minimum system volume level */
+    uint8_t getMaxSystemVolume();         /* Returns the maximum system volume level */
 
     /* Return the play time of the currently loaded media */
     size_t getPlayTime();
@@ -251,7 +261,7 @@ class Transport
         void setEnabled(bool enabled) { eq_enabled = enabled; }
         bool isEnabled() { return eq_enabled; }
 
-    } *eq = nullptr;
+    }* eq = nullptr;
 
     audio_tools::URLStream* getURLStream() { return &url_stream; }
 
@@ -282,7 +292,7 @@ class Transport
     Timer SpectrumAnalyzerUpdateTimer;
 
     audio_tools::URLStream url_stream;
-    //ICYStream url_stream;
+    // ICYStream url_stream;
     Timer connection_timeout_timer;
 
     audio_tools::Task audio_task;
@@ -293,21 +303,21 @@ class Transport
     /* Timer to control the play time display */
     Timer playTimeUpdateTimer;
 
-    size_t playTime = 0;   /* The current play time of the loaded media */
+    size_t playTime = 0; /* The current play time of the loaded media */
 
-    MediaData* loadedMedia = nullptr;   /* Stores the data of the currently loaded file */
-    transport_status status;            /* The current status of the transport (PLAYING, PAUSED, STOPPED, or IDLE) */
+    MediaData* loadedMedia = nullptr; /* Stores the data of the currently loaded file */
+    transport_status status;          /* The current status of the transport (PLAYING, PAUSED, STOPPED, or IDLE) */
 
-    uint8_t volume = 2;   /* The current volume level */
+    uint8_t volume = 2;        /* The current volume level */
     uint8_t system_volume = 2; /* The volume of the menu sounds */
 
-    const unsigned char* uiSound;     /* Pointer to a char array to play from for UI sounds */
-    size_t uiSoundLength;             /* The length of the UI sound array */
-    bool playingUISound = false;   /* True if a UI sound is currently playing */
+    const unsigned char* uiSound; /* Pointer to a char array to play from for UI sounds */
+    size_t uiSoundLength;         /* The length of the UI sound array */
+    bool playingUISound = false;  /* True if a UI sound is currently playing */
 
     /* Lock this mutex before accessing the audio buffer, unlock when done.  If you don't,
     bad things will happen and you won't find the bug for days, don't ask me how I know. */
-    audio_tools::Mutex mutex; 
+    audio_tools::Mutex mutex;
     audio_tools::RingBuffer<uint8_t> ringBuffer; /* The audio buffer */
 };
 

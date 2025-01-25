@@ -116,54 +116,54 @@ Tetris::run()
 
         serviceLoop();
 
-        if (buttons->getButtonEvent(BUTTON_UP, SHORTPRESS)) {
+        if (Buttons::get_handle()->getButtonEvent(BUTTON_UP, SHORTPRESS)) {
             if (!checkCollision(currentPiece, Tetris_Data::Direction::LEFT)) {
                 currentPiece.setX(*currentPiece.getX() - 1);
             }
         }
-        if (buttons->getButtonEvent(BUTTON_DOWN, SHORTPRESS)) {
+        if (Buttons::get_handle()->getButtonEvent(BUTTON_DOWN, SHORTPRESS)) {
             if (!checkCollision(currentPiece, Tetris_Data::Direction::RIGHT)) {
                 currentPiece.setX(*currentPiece.getX() + 1);
             }
         }
-        if (buttons->getButtonEvent(BUTTON_PLAY, SHORTPRESS)) {
+        if (Buttons::get_handle()->getButtonEvent(BUTTON_PLAY, SHORTPRESS)) {
             if (!checkCollision(currentPiece, Tetris_Data::Direction::DOWN)) {
                 currentPiece.setY(*currentPiece.getY() + 1);
             }
         }
-        if (buttons->getButtonEvent(BUTTON_STOP, SHORTPRESS)) {
+        if (Buttons::get_handle()->getButtonEvent(BUTTON_STOP, SHORTPRESS)) {
             if (!checkCollision(currentPiece, Tetris_Data::Direction::ROTATION_LEFT)) {
                 currentPiece.rotateLeft();
             }
         }
 
-        if (buttons->getButtonEvent(BUTTON_EXIT, SHORTPRESS)) {
+        if (Buttons::get_handle()->getButtonEvent(BUTTON_EXIT, SHORTPRESS)) {
             break;
         }
 
         /* Check for longpress events */
-        if (buttons->getButtonEvent(BUTTON_PLAY, LONGPRESS)) {
+        if (Buttons::get_handle()->getButtonEvent(BUTTON_PLAY, LONGPRESS)) {
             if (!checkCollision(currentPiece, Tetris_Data::Direction::DOWN)) {
                 currentPiece.setY(*currentPiece.getY() + 1);
-                buttons->repeat(BUTTON_PLAY);
+                Buttons::get_handle()->repeat(BUTTON_PLAY);
             }
         }
-        if (buttons->getButtonEvent(BUTTON_UP, LONGPRESS)) {
+        if (Buttons::get_handle()->getButtonEvent(BUTTON_UP, LONGPRESS)) {
             if (!checkCollision(currentPiece, Tetris_Data::Direction::LEFT)) {
                 currentPiece.setX(*currentPiece.getX() - 1);
-                buttons->repeat(BUTTON_UP);
+                Buttons::get_handle()->repeat(BUTTON_UP);
             }
         }
-        if (buttons->getButtonEvent(BUTTON_DOWN, LONGPRESS)) {
+        if (Buttons::get_handle()->getButtonEvent(BUTTON_DOWN, LONGPRESS)) {
             if (!checkCollision(currentPiece, Tetris_Data::Direction::RIGHT)) {
                 currentPiece.setX(*currentPiece.getX() + 1);
-                buttons->repeat(BUTTON_DOWN);
+                Buttons::get_handle()->repeat(BUTTON_DOWN);
             }
         }
-        if (buttons->getButtonEvent(BUTTON_STOP, LONGPRESS)) {
+        if (Buttons::get_handle()->getButtonEvent(BUTTON_STOP, LONGPRESS)) {
             if (!checkCollision(currentPiece, Tetris_Data::Direction::ROTATION_LEFT)) {
                 currentPiece.rotateLeft();
-                buttons->repeat(BUTTON_STOP);
+                Buttons::get_handle()->repeat(BUTTON_STOP);
             }
         }
 

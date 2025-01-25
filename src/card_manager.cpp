@@ -24,8 +24,10 @@
 
 #include <card_manager.h>
 
+Card_Manager* Card_Manager::_handle = nullptr;
+
 void
-CardManager::begin()
+Card_Manager::begin()
 {
     pinMode(CARD_DETECT_PIN, INPUT_PULLUP);
     log_i("Card detect pin set to %d", CARD_DETECT_PIN);
@@ -42,18 +44,19 @@ CardManager::begin()
 }
 
 void
-CardManager::update()
+Card_Manager::update()
 {
 }
 
 bool
-CardManager::isReady()
+Card_Manager::isReady()
 {
+    check_card_detect();
     return isReadyFlag;
 }
 
 bool
-CardManager::check_card_detect()
+Card_Manager::check_card_detect()
 {
     static unsigned long lastDebounceTime = 0;
     bool currentState = digitalRead(CARD_DETECT_PIN);
@@ -79,9 +82,9 @@ CardManager::check_card_detect()
         /* If the card was remove */
         else if (currentState == true && isReadyFlag) {
             /* End the use of the SD card here */
-            if (transport->getLoadedMedia().source == LOCAL_FILE){
-                transport->stop();
-                transport->eject();
+            if (Transport::get_handle()->getLoadedMedia().source == LOCAL_FILE){
+                Transport::get_handle()->stop();
+                Transport::get_handle()->eject();
             }
             playlistEngine->eject();
             SdFs::end();
@@ -92,5 +95,5 @@ CardManager::check_card_detect()
 
     lastState = currentState;   /* Update lastState for the next call */
 
-    return isReady();
+    return isReadyFlag;
 }

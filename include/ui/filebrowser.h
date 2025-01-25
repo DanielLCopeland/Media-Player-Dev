@@ -26,8 +26,7 @@
 
 #include <ui/common.h>
 
-class MediaData;
-class Filesystem;
+class File_Explorer;
 
 namespace UI {
 
@@ -72,7 +71,10 @@ class FileBrowser
                                                         // a fresh set of files from the filesystem to display
     std::string selectedFile = "";                      // The currently selected file
 
-    Filesystem* filesystem = nullptr;
+    File_Explorer* file_explorer = nullptr;
+
+    uint8_t sort_order;   // The sort order for the file list
+    uint8_t  sort_type;          // The sort type for the file list
 
     uint32_t numFiles = 0;   // The number of files in the current directory
 
@@ -89,6 +91,9 @@ class FileBrowser
                          // of the number of pages and files in a directory
 
     void draw();   // Draws the file browser
+
+    SystemMessage _status_message;
+    std::function<void(uint32_t _count, uint32_t _total)> _status_callback;
 };
 
 } // namespace UI

@@ -23,6 +23,8 @@
 
 #include <buttons.h>
 
+Buttons* Buttons::_handle = nullptr;
+
 Buttons::Buttons()
 {
     pinMode(BUTTON_PIN_UP, INPUT_PULLUP);

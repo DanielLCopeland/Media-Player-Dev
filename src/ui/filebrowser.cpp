@@ -2,7 +2,7 @@
  * @file filebrowser.cpp
  *
  * @brief File browser for selecting files from the filesystem. Part of the UI library.
- * 
+ *
  * @author Dan Copeland
  *
  * Licensed under GPL v3.0
@@ -22,38 +22,46 @@
  */
 
 #include <ui/common.h>
-#include <ui/filebrowser.h>
 
 UI::FileBrowser::FileBrowser()
 {
-    if (sdfs->isReady()) {
-        filesystem = new Filesystem();
-        files.reserve(MAX_TEXT_LINES);
-    }
+    _status_callback = [this](uint32_t count, uint32_t total) {
+        if (total != 0) {
+            _status_message.show("Building database:\n" + std::to_string(count) + " of " + std::to_string(total) + "\nfiles indexed", 0, false);
+        } else {
+            _status_message.show("Scanning files:\n" + std::to_string(count) + "\n files found", 0, false);
+        }
+    };
+
 }
 
 void
 UI::FileBrowser::begin()
 {
-    if (filesystem == nullptr && sdfs->isReady()) {
-        filesystem = new Filesystem();
+    if (file_explorer == nullptr && Card_Manager::get_handle()->isReady()) {
+        file_explorer = new File_Explorer();
+        file_explorer->init(_status_callback);
         files.reserve(MAX_TEXT_LINES);
     }
+    sort_order = File_Explorer::SORT_ASCENDING;
+    sort_type = File_Explorer::SORT_NAME;
 }
 
 void
 UI::FileBrowser::end()
 {
-    if (filesystem != nullptr) {
-        delete filesystem;
-        filesystem = nullptr;
+    if (file_explorer != nullptr) {
+        delete file_explorer;
+        file_explorer = nullptr;
     }
 }
 
 void
 UI::FileBrowser::refresh()
 {
-    filesystem->generateIndex(SORT_NONE, SORT_ORDER_NONE);
+    MediaData mediadata;
+    file_explorer->get_current_dir(mediadata);
+    file_explorer->generate_index(mediadata, _status_callback);
     lastPage = -1;
 }
 
@@ -61,24 +69,21 @@ MediaData
 UI::FileBrowser::get()
 {
     SystemMessage notify;
+    Timer selectedFileTimer; /* Timer for rotating the selected file if it's too long to fit on the screen */
 
-    if (filesystem == nullptr && !sdfs->isReady()) {
+    if (!Card_Manager::get_handle()->isReady()) {
         log_e("Filesystem is not initialized!");
         notify.show("No files found!", 2000, false);
         return MediaData();
     }
 
-    if (filesystem == nullptr && sdfs->isReady()) {
+    if (file_explorer == nullptr) {
         begin();
     }
 
-    Timer selectedFileTimer; /* Timer for rotating the selected file if it's too long to fit on the screen */
-    
-    notify.show("Loading files...", 0, false);
-    transport->playUIsound(folder_open, folder_open_len);
-
+    Transport::get_handle()->playUIsound(folder_open, folder_open_len);
     lastPage = -1;
-    numFiles = filesystem->numFiles();
+    numFiles = file_explorer->size();
     if (currentPosition.selectedFile_index > numFiles - 1) {
         if (currentPosition.page > numPages()) {
             currentPosition.page = numPages();
@@ -94,31 +99,31 @@ UI::FileBrowser::get()
     while (true) {
         serviceLoop();
 
-        if (filesystem != nullptr && !sdfs->isReady()) {
+        if (file_explorer != nullptr && !Card_Manager::get_handle()->isReady()) {
             end();
             log_e("Filesystem is not ready!");
             notify.show("No files found!", 2000, false);
             return MediaData();
         }
 
-        if (buttons->getButtonEvent(BUTTON_UP, SHORTPRESS))
+        if (Buttons::get_handle()->getButtonEvent(BUTTON_UP, SHORTPRESS)) {
             cursorUp();
+        }
 
-        if (buttons->getButtonEvent(BUTTON_DOWN, SHORTPRESS))
+        if (Buttons::get_handle()->getButtonEvent(BUTTON_DOWN, SHORTPRESS)) {
             cursorDown();
+        }
 
-        if (buttons->getButtonEvent(BUTTON_EXIT, SHORTPRESS)) {
-            transport->playUIsound(folder_close, folder_close_len);
+        if (Buttons::get_handle()->getButtonEvent(BUTTON_EXIT, SHORTPRESS)) {
+            Transport::get_handle()->playUIsound(folder_close, folder_close_len);
             return MediaData();
         }
 
-        if (buttons->getButtonEvent(BUTTON_PLAY, SHORTPRESS)) {
+        if (Buttons::get_handle()->getButtonEvent(BUTTON_PLAY, SHORTPRESS)) {
             /* Check whether the selected file is a directory or a file */
             if (files[currentPosition.cursor].type == FILETYPE_DIR) {
-                transport->playUIsound(folder_open, folder_open_len);
-                notify.show("Loading files...", 0, false);
-
-                if (filesystem->openDir(files[currentPosition.cursor])) {
+                Transport::get_handle()->playUIsound(folder_open, folder_open_len);
+                if (file_explorer->open_dir(files[currentPosition.cursor], _status_callback) == File_Explorer::ERROR_NONE) {
                     /* Save the current position in the file list so we can return to it later */
                     positionHistory.push_back(currentPosition);
 
@@ -127,20 +132,19 @@ UI::FileBrowser::get()
                     currentPosition.page = 1;
                     currentPosition.selectedFile_index = 0;
                     lastPage = -1;
-                    numFiles = filesystem->numFiles();
+                    numFiles = file_explorer->size();
+                } else {
+                    lastPage = -1;
                 }
-
-            }
-
-            else {
-                transport->playUIsound(load_item, load_item_len);
+            } else {
+                Transport::get_handle()->playUIsound(load_item, load_item_len);
                 return files[currentPosition.cursor];
             }
         }
 
-        if (buttons->getButtonEvent(BUTTON_STOP, SHORTPRESS)) {
+        if (Buttons::get_handle()->getButtonEvent(BUTTON_STOP, SHORTPRESS)) {
             if (positionHistory.size() == 0) {
-                transport->playUIsound(folder_close, folder_close_len);
+                Transport::get_handle()->playUIsound(folder_close, folder_close_len);
                 return MediaData();
             }
 
@@ -148,35 +152,36 @@ UI::FileBrowser::get()
 
             notify.show("Loading files...", 0, false);
 
-            if (filesystem->exitDir()) {
+            if (file_explorer->exit_dir() == File_Explorer::ERROR_NONE) {
                 /* Restore the cursor position and page */
                 currentPosition = positionHistory.back();
                 positionHistory.pop_back();
                 lastPage = -1; /* Force the file list to be reloaded */
-                numFiles = filesystem->numFiles();
-                transport->playUIsound(folder_close, folder_close_len);
+                numFiles = file_explorer->size();
+                Transport::get_handle()->playUIsound(folder_close, folder_close_len);
             }
         }
 
-        if (buttons->getButtonEvent(BUTTON_MENU, SHORTPRESS)) {
-            transport->playUIsound(folder_open, folder_open_len);
+        if (Buttons::get_handle()->getButtonEvent(BUTTON_MENU, SHORTPRESS)) {
+            Transport::get_handle()->playUIsound(folder_open, folder_open_len);
             altMenu();
         }
 
         /* Now check the longpress events */
-        if (buttons->getButtonEvent(BUTTON_UP, LONGPRESS)) {
+        if (Buttons::get_handle()->getButtonEvent(BUTTON_UP, LONGPRESS)) {
             cursorUp();
-            buttons->repeat(BUTTON_UP);
+            Buttons::get_handle()->repeat(BUTTON_UP);
         }
 
-        if (buttons->getButtonEvent(BUTTON_DOWN, LONGPRESS)) {
+        if (Buttons::get_handle()->getButtonEvent(BUTTON_DOWN, LONGPRESS)) {
             cursorDown();
-            buttons->repeat(BUTTON_DOWN);
+            Buttons::get_handle()->repeat(BUTTON_DOWN);
         }
 
         /* If the selected file is too long to fit on the screen, rotate it */
-        if (selectedFileTimer.check(SELECTED_ITEM_ROTATE_SPEED) && selectedFile.size() > MAX_CHARACTERS_PER_LINE)
+        if (selectedFileTimer.check(SELECTED_ITEM_ROTATE_SPEED) && selectedFile.size() > MAX_CHARACTERS_PER_LINE) {
             std::rotate(selectedFile.begin(), selectedFile.begin() + 1, selectedFile.end());
+        }
 
         draw();
     }
@@ -190,8 +195,9 @@ UI::FileBrowser::numPages()
     uint32_t pages;
     uint8_t remainder = 0;
 
-    if (numFiles <= MAX_TEXT_LINES)
+    if (numFiles <= MAX_TEXT_LINES) {
         pages = 1;
+    }
 
     else {
         pages = (numFiles / MAX_TEXT_LINES);
@@ -199,8 +205,9 @@ UI::FileBrowser::numPages()
     }
 
     /* If the last page had less than four files, add another page for them */
-    if (remainder > 0)
+    if (remainder > 0) {
         pages++;
+    }
 
     return pages;
 }
@@ -214,7 +221,7 @@ UI::FileBrowser::cursorUp()
         selectedFile = files[currentPosition.cursor].filename;
         if (selectedFile.length() > MAX_CHARACTERS_PER_LINE)
             selectedFile.append("   ");
-        transport->playUIsound(click, click_len);
+        Transport::get_handle()->playUIsound(click, click_len);
     }
 
     else if (currentPosition.cursor == 0 && currentPosition.page > 1) {
@@ -222,7 +229,7 @@ UI::FileBrowser::cursorUp()
         currentPosition.page--;
         currentPosition.cursor = MAX_TEXT_LINES - 1;
         currentPosition.selectedFile_index--;
-        transport->playUIsound(click, click_len);
+        Transport::get_handle()->playUIsound(click, click_len);
     }
 }
 
@@ -235,7 +242,7 @@ UI::FileBrowser::cursorDown()
         selectedFile = files[currentPosition.cursor].filename;
         if (selectedFile.length() > MAX_CHARACTERS_PER_LINE)
             selectedFile.append("   ");
-        transport->playUIsound(click, click_len);
+        Transport::get_handle()->playUIsound(click, click_len);
     }
 
     else if (currentPosition.cursor == MAX_TEXT_LINES - 1 && currentPosition.page < numPages()) {
@@ -243,7 +250,7 @@ UI::FileBrowser::cursorDown()
         currentPosition.page++;
         currentPosition.selectedFile_index++;
         currentPosition.cursor = 0;
-        transport->playUIsound(click, click_len);
+        Transport::get_handle()->playUIsound(click, click_len);
     }
 }
 
@@ -261,15 +268,17 @@ UI::FileBrowser::draw()
     if (lastPage != currentPosition.page) {
         uint8_t lines = MAX_TEXT_LINES;
 
-        if ((currentPosition.page - 1) * MAX_TEXT_LINES + MAX_TEXT_LINES > numFiles)
+        if ((currentPosition.page - 1) * MAX_TEXT_LINES + MAX_TEXT_LINES > numFiles) {
             lines = numFiles - (currentPosition.page - 1) * MAX_TEXT_LINES;
+        }
 
-        files = filesystem->getFiles((currentPosition.page - 1) * MAX_TEXT_LINES, lines);
+        file_explorer->get_list(&files, (currentPosition.page - 1) * MAX_TEXT_LINES, lines, sort_order, sort_type);
 
         if (files.size() > 0) {
             selectedFile = files[currentPosition.cursor].filename;
-            if (selectedFile.length() > MAX_CHARACTERS_PER_LINE)
+            if (selectedFile.length() > MAX_CHARACTERS_PER_LINE) {
                 selectedFile.append("   ");
+            }
         }
 
         lastPage = currentPosition.page;
@@ -281,12 +290,15 @@ UI::FileBrowser::draw()
             display->setCursor(10, i * 8);
 
             /* Draw the icon for the file type */
-            if (files[i].type == FILETYPE_DIR)
+            if (files[i].type == FILETYPE_DIR) {
                 display->drawBitmap(0, (i * 8), bitmap_folder, 7, 7, WHITE);
-            else if (files[i].type == FILETYPE_M3U)
+            }
+            else if (files[i].type == FILETYPE_M3U) {
                 display->drawBitmap(0, (i * 8), bitmap_playlist, 7, 7, WHITE);
-            else
+            }
+            else {
                 display->drawBitmap(0, (i * 8), bitmap_note, 7, 7, WHITE);
+            }
 
             if (i == currentPosition.cursor) {
                 display->setTextColor(BLACK, WHITE);
@@ -327,49 +339,49 @@ UI::FileBrowser::altMenu()
 
     notify.show("Sorting...", 0, false);
 
-    switch (selectedItem) {
-        case ASC:
-            filesystem->generateIndex(SORT_FILENAME, SORT_ORDER_ASCENDING, true);
-            break;
-
-        case DESC:
-            filesystem->generateIndex(SORT_FILENAME, SORT_ORDER_DESCENDING, true);
-            break;
-
-        case DIR:
-            filesystem->generateIndex(SORT_DIR, SORT_ORDER_ASCENDING, true);
-            break;
-
-        case UI_EXIT:
-            return;
-    }
-
     currentPosition.cursor = 0;
     currentPosition.page = 1;
     currentPosition.selectedFile_index = 0;
+
+    switch (selectedItem) {
+        case ASC:
+            sort_order = File_Explorer::SORT_ASCENDING;
+            break;
+
+        case DESC:
+            sort_order = File_Explorer::SORT_DESCENDING;
+            break;
+
+        case NAME:
+            sort_type = File_Explorer::SORT_NAME;
+            break;
+
+        case TYPE:
+            sort_type = File_Explorer::SORT_TYPE;
+            break;
+
+        default:
+            return;
+    }
     lastPage = -1; /* Force the file list to be reloaded */
     return;
 }
 
 UI::FileBrowser::~FileBrowser()
 {
-    if (filesystem != nullptr) {
-        delete filesystem;
-        filesystem = nullptr;
+    if (file_explorer != nullptr) {
+        delete file_explorer;
+        file_explorer = nullptr;
     }
 }
 
 bool
 UI::FileBrowser::setRoot(MediaData root)
 {
-    if (filesystem->setRoot(root)) {
-        currentPosition.cursor = 0;
-        currentPosition.page = 1;
-        currentPosition.selectedFile_index = 0;
-        lastPage = -1; /* Force the file list to be reloaded */
-
-        return true;
-    }
-
-    return false;
+    file_explorer->init(root);
+    currentPosition.cursor = 0;
+    currentPosition.page = 1;
+    currentPosition.selectedFile_index = 0;
+    lastPage = -1; /* Force the file list to be reloaded */
+    return true;
 }

@@ -48,15 +48,15 @@ Snake::run()
         serviceLoop();
 
         /* Check for button presses and change snake direction, but don't allow the snake to reverse direction */
-        if (buttons->getButtonEvent(BUTTON_UP, SHORTPRESS) && this->direction != Direction::DOWN) {
+        if (Buttons::get_handle()->getButtonEvent(BUTTON_UP, SHORTPRESS) && this->direction != Direction::DOWN) {
             this->direction = Direction::UP;
-        } else if (buttons->getButtonEvent(BUTTON_DOWN, SHORTPRESS) && this->direction != Direction::UP) {
+        } else if (Buttons::get_handle()->getButtonEvent(BUTTON_DOWN, SHORTPRESS) && this->direction != Direction::UP) {
             this->direction = Direction::DOWN;
-        } else if (buttons->getButtonEvent(BUTTON_PLAY, SHORTPRESS) && this->direction != Direction::RIGHT) {
+        } else if (Buttons::get_handle()->getButtonEvent(BUTTON_PLAY, SHORTPRESS) && this->direction != Direction::RIGHT) {
             this->direction = Direction::LEFT;
-        } else if (buttons->getButtonEvent(BUTTON_STOP, SHORTPRESS) && this->direction != Direction::LEFT) {
+        } else if (Buttons::get_handle()->getButtonEvent(BUTTON_STOP, SHORTPRESS) && this->direction != Direction::LEFT) {
             this->direction = Direction::RIGHT;
-        } else if (buttons->getButtonEvent(BUTTON_EXIT, SHORTPRESS)) {
+        } else if (Buttons::get_handle()->getButtonEvent(BUTTON_EXIT, SHORTPRESS)) {
             message.show("Exiting!\nScore: " + std::to_string(this->score), 2000, false);
             return;
         }

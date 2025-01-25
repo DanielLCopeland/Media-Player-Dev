@@ -33,11 +33,7 @@ std::queue<const char*> Bluetooth::_cmdQueue;
 BluetoothMode Bluetooth::_mode = POWER_OFF;
 Timer Bluetooth::_timer;
 uint8_t Bluetooth::scanCount = 0;
-
-Bluetooth::Bluetooth()
-{
-    _bluetooth = nullptr;
-}
+Bluetooth* Bluetooth::_handle = nullptr;
 
 void
 Bluetooth::begin()
@@ -68,6 +64,10 @@ Bluetooth::end()
     if (_systemMessage) {
         delete _systemMessage;
         _systemMessage = nullptr;
+    }
+    if (Bluetooth::_handle) {
+        delete Bluetooth::_handle;
+        Bluetooth::_handle = nullptr;
     }
 }
 

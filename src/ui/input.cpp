@@ -169,28 +169,28 @@ UI::TextInput::get(std::string prompt, std::string defaultText, uint8_t maxLengt
     while (true) {
         serviceLoop();
 
-        if (buttons->getButtonEvent(BUTTON_PLAY, SHORTPRESS)) {
+        if (Buttons::get_handle()->getButtonEvent(BUTTON_PLAY, SHORTPRESS)) {
             if (editMode)
                 addChar(characterTable[characterTableIndex]);
             else
                 moveCursorRight();
         }
 
-        if (buttons->getButtonEvent(BUTTON_STOP, SHORTPRESS)) {
+        if (Buttons::get_handle()->getButtonEvent(BUTTON_STOP, SHORTPRESS)) {
             if (editMode)
                 removeChar();
             else
                 moveCursorLeft();
         }
 
-        if (buttons->getButtonEvent(BUTTON_EXIT, SHORTPRESS)) {
+        if (Buttons::get_handle()->getButtonEvent(BUTTON_EXIT, SHORTPRESS)) {
             if (editMode) {
                 input[stringIndex] = cursorCharacter;
             }
             return input;
         }
 
-        if (buttons->getButtonEvent(BUTTON_MENU, SHORTPRESS)) {
+        if (Buttons::get_handle()->getButtonEvent(BUTTON_MENU, SHORTPRESS)) {
             if (editMode) {
                 input[stringIndex] = cursorCharacter;
             }
@@ -219,37 +219,37 @@ UI::TextInput::get(std::string prompt, std::string defaultText, uint8_t maxLengt
             }
         }
 
-        if (buttons->getButtonEvent(BUTTON_UP, SHORTPRESS) && editMode)
+        if (Buttons::get_handle()->getButtonEvent(BUTTON_UP, SHORTPRESS) && editMode)
             scrollUp();
 
-        if (buttons->getButtonEvent(BUTTON_DOWN, SHORTPRESS) && editMode)
+        if (Buttons::get_handle()->getButtonEvent(BUTTON_DOWN, SHORTPRESS) && editMode)
             scrollDown();
 
         /* Longpress events */
-        if (buttons->getButtonEvent(BUTTON_UP, LONGPRESS)) {
+        if (Buttons::get_handle()->getButtonEvent(BUTTON_UP, LONGPRESS)) {
             scrollUp();
-            buttons->repeat(BUTTON_UP);
+            Buttons::get_handle()->repeat(BUTTON_UP);
         }
 
-        if (buttons->getButtonEvent(BUTTON_DOWN, LONGPRESS)) {
+        if (Buttons::get_handle()->getButtonEvent(BUTTON_DOWN, LONGPRESS)) {
             scrollDown();
-            buttons->repeat(BUTTON_DOWN);
+            Buttons::get_handle()->repeat(BUTTON_DOWN);
         }
 
-        if (buttons->getButtonEvent(BUTTON_PLAY, LONGPRESS)) {
+        if (Buttons::get_handle()->getButtonEvent(BUTTON_PLAY, LONGPRESS)) {
             if (editMode)
                 addChar(characterTable[characterTableIndex]);
             else
                 moveCursorRight();
-            buttons->repeat(BUTTON_PLAY);
+            Buttons::get_handle()->repeat(BUTTON_PLAY);
         }
 
-        if (buttons->getButtonEvent(BUTTON_STOP, LONGPRESS)) {
+        if (Buttons::get_handle()->getButtonEvent(BUTTON_STOP, LONGPRESS)) {
             if (editMode)
                 removeChar();
             else
                 moveCursorLeft();
-            buttons->repeat(BUTTON_STOP);
+            Buttons::get_handle()->repeat(BUTTON_STOP);
         }
 
         draw();

@@ -24,6 +24,8 @@
 
 #include <transport.h>
 
+Transport* Transport::_handle = nullptr;
+
 Transport::Transport() : ringBuffer(AUDIO_BUFFER_SIZE)
 {}
 
@@ -190,7 +192,7 @@ Transport::load(MediaData media)
         if (media.type != FILETYPE_M3U) {
             switch (media.source) {
                 case LOCAL_FILE:
-                    if (sdfs->isReady() && audio_file.open(media.getPath(), O_RDONLY)) {
+                    if (Card_Manager::get_handle()->isReady() && audio_file.open(media.getPath(), O_RDONLY)) {
                         *loadedMedia = media;
                         status = TRANSPORT_STOPPED;
                         resetMetadata();
@@ -227,13 +229,13 @@ Transport::play()
     playingUISound = false;
     volume_stream.setVolume((float) volume / TRANSPORT_MAX_VOLUME);
 
-    if (sdfs->isReady() && loadedMedia->loaded && loadedMedia->source == LOCAL_FILE && audio_file.isOpen()) {
+    if (Card_Manager::get_handle()->isReady() && loadedMedia->loaded && loadedMedia->source == LOCAL_FILE && audio_file.isOpen()) {
         status = TRANSPORT_PLAYING;
         log_i("Playing file: %s", loadedMedia->filename.c_str());
         return true;
     }
 
-    if (!sdfs->isReady() && loadedMedia->source == LOCAL_FILE) {
+    if (!Card_Manager::get_handle()->isReady() && loadedMedia->source == LOCAL_FILE) {
         eject();
         return false;
     }
@@ -351,7 +353,7 @@ Transport::volumeUp()
         if (!playingUISound) {
             volume_stream.setVolume(vol);
         }
-        systemConfig->setVolume(volume);
+        Config_Manager::get_handle()->setVolume(volume);
     }
 }
 
@@ -366,7 +368,7 @@ Transport::volumeDown()
         if (!playingUISound) {
             volume_stream.setVolume(vol);
         }
-        systemConfig->setVolume(volume);
+        Config_Manager::get_handle()->setVolume(volume);
     }
 }
 
@@ -386,7 +388,7 @@ Transport::setVolume(uint8_t volume)
     if (!playingUISound) {
         volume_stream.setVolume(vol);
     }
-    systemConfig->setVolume(volume);
+    Config_Manager::get_handle()->setVolume(volume);
 }
 
 uint8_t
@@ -411,7 +413,7 @@ void
 Transport::setSystemVolume(uint8_t volume)
 {
     system_volume = volume;
-    systemConfig->setSystemVolume(volume);
+    Config_Manager::get_handle()->setSystemVolume(volume);
 }
 
 uint8_t
@@ -431,7 +433,7 @@ Transport::systemVolumeUp()
 {
     if (system_volume < TRANSPORT_MAX_SYSTEM_VOLUME) {
         system_volume += 2;
-        systemConfig->setSystemVolume(system_volume);
+        Config_Manager::get_handle()->setSystemVolume(system_volume);
     }
 }
 
@@ -440,7 +442,7 @@ Transport::systemVolumeDown()
 {
     if (system_volume > TRANSPORT_MIN_SYSTEM_VOLUME) {
         system_volume -= 2;
-        systemConfig->setSystemVolume(system_volume);
+        Config_Manager::get_handle()->setSystemVolume(system_volume);
     }
 }
 
@@ -487,7 +489,7 @@ Transport::loop()
 
             case LOCAL_FILE:
                 /* If the file has finished playing, stop the playback */
-                if (!sdfs->isReady() || !audio_file.available()) {
+                if (!Card_Manager::get_handle()->isReady() || !audio_file.available()) {
                     stop();
                     break;
                 }
@@ -820,7 +822,7 @@ Transport::EqualizerController::setBass(uint8_t bass)
 {
     _bass = bass;
     cfg.gain_low = (float) bass / TRANSPORT_MAX_BASS;
-    systemConfig->setBass(bass);
+    Config_Manager::get_handle()->setBass(bass);
 }
 
 void
@@ -828,7 +830,7 @@ Transport::EqualizerController::setMid(uint8_t mid)
 {
     _mid = mid;
     cfg.gain_medium = (float) mid / TRANSPORT_MAX_MID;
-    systemConfig->setMid(mid);
+    Config_Manager::get_handle()->setMid(mid);
 }
 
 void
@@ -836,7 +838,7 @@ Transport::EqualizerController::setTreble(uint8_t treble)
 {
     _treble = treble;
     cfg.gain_high = (float) treble / TRANSPORT_MAX_TREBLE;
-    systemConfig->setTreble(treble);
+    Config_Manager::get_handle()->setTreble(treble);
 }
 
 /****************************************************

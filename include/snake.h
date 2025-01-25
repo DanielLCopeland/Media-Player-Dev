@@ -35,7 +35,6 @@
 #include <system.h>
 #include <timer.h>
 
-extern Buttons* buttons;
 extern Adafruit_SSD1306* display;
 
 class Snake

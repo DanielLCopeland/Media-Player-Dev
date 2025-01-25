@@ -17,7 +17,7 @@
  * @file file_explorer.h
  * @author Daniel Copeland
  * @brief
- * @date 2024-02-02
+ * @date 2025-01-02
  *
  * @copyright Copyright (c) 2024
  *
@@ -28,13 +28,14 @@
 #define SQLITE_TEMP_STORE 3
 
 #include <SdFat.h>
-#include <callbacks.h>
+#include <utilities.h>
 #include <card_manager.h>
-#include <hash.h>
+#include <rom/md5_hash.h>
 #include <sqlite3.h>
 #include <string>
 #include <system.h>
-#include <ulog_sqlite.h>
+#include <callbacks.h>
+#include <functional>
 #include <vector>
 
 #define DB_FILE            ".index.db"
@@ -42,38 +43,56 @@
 #define FS_MOUNT_POINT     "/sdfat"
 #define SUBDIRECTORY_LIMIT 20
 #define DB_BUF_SIZE        1024
+#define MD5_DIGEST_LENGTH  16
+#define MD5_DIGEST_STRING_LEN (MD5_DIGEST_LENGTH + 1)
+#define FILENAME_BUFFER_LEN       256
 
-extern CardManager* sdfs;
-
-enum file_explorer_error_t
-{
-    ERROR_NONE,
-    ERROR_FAILURE,
-    ERROR_ROOT_DIR,
-    ERROR_NOT_FOUND,
-    ERROR_ALREADY_EXISTS,
-    ERROR_INVALID,
-    ERROR_UNKNOWN
-};
-
-enum db_column_t
-{
-    DB_COL_ID,
-    DB_COL_FILENAME,
-    DB_COL_PATH,
-    DB_COL_TYPE,
-    DB_COL_CHECKSUM,
-    DB_COL_COUNT
-};
+class Card_Manager;
+class File_Explorer;
+class MediaData;
 
 class File_Explorer
 {
   public:
+    enum error_t
+    {
+        ERROR_NONE,
+        ERROR_FAILURE,
+        ERROR_ROOT_DIR,
+        ERROR_NOT_FOUND,
+        ERROR_ALREADY_EXISTS,
+        ERROR_INVALID,
+        ERROR_UNKNOWN
+    };
+
+    enum db_column_t
+    {
+        DB_COL_ID,
+        DB_COL_FILENAME,
+        DB_COL_PATH,
+        DB_COL_TYPE,
+        DB_COL_CHECKSUM,
+        DB_COL_COUNT
+    };
+
+    enum sort_order_t : uint8_t
+    {
+        SORT_ASCENDING,
+        SORT_DESCENDING
+    };
+
+    enum sort_type_t : uint8_t
+    {
+        SORT_NAME,
+        SORT_TYPE
+    };
+
     File_Explorer();
     ~File_Explorer();
 
-    void init(MediaData& dir);
-    void init();
+    void init(MediaData& dir, std::function<void(uint32_t, uint32_t)> status_callback = nullptr);
+    void init(std::function<void(uint32_t, uint32_t)> status_callback = nullptr);
+    error_t generate_index(MediaData& mediadata, std::function<void(uint32_t, uint32_t)> status_callback = nullptr);
     void close()
     {
         ready = false;
@@ -81,15 +100,15 @@ class File_Explorer
     }
 
     /**
-     * @brief Returns a vector of strings containing the names of the files in the directory
+     * @brief Passes back a vector of MediaData objects containing the names of the files in the directory
      *
-     * @param mediadata Metadata class containing the path to the directory or file
-     * @param index The index of the first file to return
-     * @param count The number of files to return
-     * @param files Vector of strings to store the filenames
-     * @return FE::file_explorer_error_e
+     * @param data Metadata class containing the path to the directory or file
+     * @param index Index of the first file to return
+     * @param count Number of files to return
+     * @param sort_order Sort order of the files, either SORT_ASCENDING or SORT_DESCENDING
      */
-    file_explorer_error_t get(MediaData& mediadata, uint32_t index, uint32_t count, std::vector<std::string>& files);
+    error_t get_list(std::vector<MediaData>* data, uint32_t index, uint32_t count, uint8_t sort_order, uint8_t sort_type);
+    error_t get_list(std::vector<std::string>* data, uint32_t index, uint32_t count, uint8_t sort_order, uint8_t sort_type);
 
     /**
      * @brief Opens a directory
@@ -97,73 +116,22 @@ class File_Explorer
      * @param mediadata Metadata class containing the path to the directory
      * @return FE::file_explorer_error_e
      */
-    file_explorer_error_t open_dir(MediaData& mediadata);
-
-    /**
-     * @brief Removes a file or directory
-     *
-     * @param mediadata Metadata class containing the path to the directory or file
-     * @return FE::file_explorer_error_e
-     */
-    file_explorer_error_t remove(MediaData& mediadata);
-
-    /**
-     * @brief Creates a directory
-     *
-     * @param mediadata Metadata class containing the path to the directory
-     * @return FE::file_explorer_error_e
-     */
-    file_explorer_error_t create_dir(MediaData& mediadata);
-
-    /**
-     * @brief Creates an empty file using the path and filename in the metadata class
-     *
-     * @param mediadata Metadata class containing the path to the file
-     * @return FE::file_explorer_error_e
-     */
-    file_explorer_error_t create_file(MediaData& mediadata);
-
-    /**
-     * @brief Renames a file or directory
-     *
-     * @param mediadata Metadata class containing the path to the file or directory
-     * @param new_name The new name of the file or directory
-     * @return FE::file_explorer_error_e
-     */
-    file_explorer_error_t rename(MediaData& mediadata, std::string new_name);
-
-    /**
-     * @brief Copies a file or directory
-     *
-     * @param source Metadata class containing the path to the source file or directory
-     * @param destination Metadata class containing the path to the destination file or directory
-     * @return FE::file_explorer_error_e
-     */
-    file_explorer_error_t copy(MediaData& source, MediaData& destination);
-
-    /**
-     * @brief Moves a file or directory
-     *
-     * @param source Metadata class containing the path to the source file or directory
-     * @param destination Metadata class containing the path to the destination file or directory
-     * @return FE::file_explorer_error_e
-     */
-    file_explorer_error_t move(MediaData& source, MediaData& destination);
+    error_t open_dir(MediaData& mediadata, std::function<void(uint32_t, uint32_t)> status_callback = nullptr);
 
     /**
      * @brief Changes the current working directory to the parent directory
      *
      * @return FE::file_explorer_error_e
      */
-    file_explorer_error_t exit_dir();
+    error_t exit_dir();
 
     /**
-     * @brief Changes the current working directory to the specified directory
+     * @brief Returns the current working directory
      *
      * @param mediadata External metadata class to pass back the current working directory
      * @return FE::file_explorer_error_e
      */
-    file_explorer_error_t get_current_dir(MediaData& mediadata);
+    error_t get_current_dir(MediaData& mediadata);
 
     /**
      * @brief Indicates whether the file explorer has successfully initialized and is ready to use
@@ -178,48 +146,31 @@ class File_Explorer
      *
      * @return uint32_t
      */
-    uint32_t get_depth() { return directory_stack.size(); }
+    uint32_t depth()
+    {
+        uint32_t _depth = directory_stack.size();
+        if (_depth > 0) {
+            _depth--;
+        }
+        return _depth;
+    }
 
     /**
-     * @brief Creates a checksum of all the filenames in the current directory
+     * @brief Returns the number of files in the current working directory
      *
      * @return uint32_t
      */
-    file_explorer_error_t get_checksum();
+    uint32_t size() { return _num_files; }
 
   private:
-    file_explorer_error_t generate_index(MediaData& mediadata);
+
+    uint32_t _num_files = 0;
     void fill_dir_stack(MediaData& mediadata);
     std::vector<MediaData> directory_stack;
     bool ready;
     bool is_root_dir(MediaData& mediadata);
-    file_explorer_error_t create_db(sqlite3* db);
-
-    MediaData db_get_mediadata(uint32_t id);
-    void db_put_mediadata(MediaData& mediadata);
+    error_t create_db(sqlite3* db);
     std::string get_db_path(MediaData& mediadata);
-    /**
-     * @note The following describes the layout of the database file
-     *
-     * Columns:
-     *
-     * 1. id - The unique identifier for the file or directory
-     * 2. filename - The name of the file or directory
-     * 3. path - The path to the file or directory
-     * 4. url - The URL of the file or directory
-     * 5. type - The type of the file or directory
-     * 6. port - The port number for the file or directory
-     * 7. source - The source of the file or directory
-     * 8. checksum - The checksum of the filename added to the previous checksums
-     */
-
-    /**
-     * @brief writes a row to the database
-     *
-     * @param mediadata Metadata class containing the data to write
-     * @return FE::file_explorer_error_e
-     */
-    file_explorer_error_t write_row(MediaData& mediadata);
 };
 
 #endif /* file_explorer_h */

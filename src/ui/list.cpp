@@ -2,7 +2,7 @@
  * @file list.cpp
  *
  * @brief Allows the user to select an item from a list. Part of the UI library.
- * 
+ *
  * @author Dan Copeland
  *
  * Licensed under GPL v3.0
@@ -21,10 +21,10 @@
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-#include <ui/common.h>
 #include <ui/list.h>
 
-UI::ListSelection::ListSelection() {
+UI::ListSelection::ListSelection()
+{
     if (marquee == nullptr) {
         marquee = new UI::Marquee();
     }
@@ -32,7 +32,8 @@ UI::ListSelection::ListSelection() {
     marquee->setSpeed(100);
 }
 
-UI::ListSelection::~ListSelection() {
+UI::ListSelection::~ListSelection()
+{
     if (marquee != nullptr) {
         delete marquee;
         marquee = nullptr;
@@ -40,38 +41,38 @@ UI::ListSelection::~ListSelection() {
 }
 
 uint16_t
-UI::ListSelection::get()
+UI::ListSelection::_get()
 {
     /* Main loop */
     while (true) {
         serviceLoop();
 
-        if (buttons->getButtonEvent(BUTTON_UP, SHORTPRESS))
+        if (Buttons::get_handle()->getButtonEvent(BUTTON_UP, SHORTPRESS))
             cursorUp();
 
-        if (buttons->getButtonEvent(BUTTON_DOWN, SHORTPRESS))
+        if (Buttons::get_handle()->getButtonEvent(BUTTON_DOWN, SHORTPRESS))
             cursorDown();
 
-        if (buttons->getButtonEvent(BUTTON_PLAY, SHORTPRESS)) {
-            transport->playUIsound(load_item, load_item_len);
+        if (Buttons::get_handle()->getButtonEvent(BUTTON_PLAY, SHORTPRESS)) {
+            Transport::get_handle()->playUIsound(load_item, load_item_len);
             return selectedIndex;
         }
 
-        if (buttons->getButtonEvent(BUTTON_EXIT, SHORTPRESS)) {
-            transport->playUIsound(folder_close, folder_close_len);
+        if (Buttons::get_handle()->getButtonEvent(BUTTON_EXIT, SHORTPRESS)) {
+            Transport::get_handle()->playUIsound(folder_close, folder_close_len);
             return UI_EXIT;
         }
 
         /* Longpress events */
 
-        if (buttons->getButtonEvent(BUTTON_UP, LONGPRESS)) {
+        if (Buttons::get_handle()->getButtonEvent(BUTTON_UP, LONGPRESS)) {
             cursorUp();
-            buttons->repeat(BUTTON_UP);
+            Buttons::get_handle()->repeat(BUTTON_UP);
         }
 
-        if (buttons->getButtonEvent(BUTTON_DOWN, LONGPRESS)) {
+        if (Buttons::get_handle()->getButtonEvent(BUTTON_DOWN, LONGPRESS)) {
             cursorDown();
-            buttons->repeat(BUTTON_DOWN);
+            Buttons::get_handle()->repeat(BUTTON_DOWN);
         }
 
         draw();
@@ -83,7 +84,7 @@ UI::ListSelection::get()
 uint16_t
 UI::ListSelection::get(const char* const menuItems[], uint16_t numItems)
 {
-    menuType = MENU_TYPE_CONST_CHAR;
+    menu_type = MENU_TYPE_CONST_CHAR;
 
     this->numItems = numItems;
     this->menuItems = menuItems;
@@ -92,13 +93,13 @@ UI::ListSelection::get(const char* const menuItems[], uint16_t numItems)
     page = 1;
     selectedIndex = 0;
 
-    return get();
+    return _get();
 }
 
 uint16_t
 UI::ListSelection::get(std::vector<std::string>& listItems)
 {
-    menuType = MENU_TYPE_STRING_VECTOR;
+    menu_type = MENU_TYPE_STRING_VECTOR;
 
     this->listItems_ptr = &listItems;
     numItems = listItems.size();
@@ -107,22 +108,7 @@ UI::ListSelection::get(std::vector<std::string>& listItems)
     page = 1;
     selectedIndex = 0;
 
-    return get();
-}
-
-uint16_t
-UI::ListSelection::get(TableData& table)
-{
-    menuType = MENU_TYPE_DATATABLE;
-
-    this->table = &table;
-    numItems = table.size();
-
-    cursor = 0;
-    page = 1;
-    selectedIndex = 0;
-
-    return get();
+    return _get();
 }
 
 uint16_t
@@ -136,7 +122,7 @@ UI::ListSelection::get(PlaylistEngine* playlist_engine, bool playlist_showindex)
     this->_playlist_engine = playlist_engine;
     this->_playlist_showindex = playlist_showindex;
 
-    menuType = MENU_TYPE_PLAYLIST;
+    menu_type = MENU_TYPE_PLAYLIST;
     numItems = _playlist_engine->size();
     selectedIndex = _playlist_engine->getCurrentTrackIndex();
 
@@ -145,7 +131,7 @@ UI::ListSelection::get(PlaylistEngine* playlist_engine, bool playlist_showindex)
     defaultIndex = selectedIndex % MAX_TEXT_LINES;
     cursor = defaultIndex;
 
-    return get();
+    return _get();
 }
 
 std::vector<std::string>
@@ -155,7 +141,7 @@ UI::ListSelection::getDisplayedItems()
     MediaData item;
 
     for (uint16_t i = (page - 1) * MAX_TEXT_LINES; i < (page * MAX_TEXT_LINES); i++) {
-        switch (menuType) {
+        switch (menu_type) {
             case MENU_TYPE_CONST_CHAR:
                 if (i < numItems)
                     displayedItems.push_back(menuItems[i]);
@@ -177,11 +163,20 @@ UI::ListSelection::getDisplayedItems()
                         displayedItems.push_back(item.url);
                     }
                 }
-                break;
             default:
                 break;
         }
     }
+
+    if (menu_type == MENU_TYPE_CUSTOM) {
+        uint8_t lines = MAX_TEXT_LINES;
+
+        if ((page - 1) * MAX_TEXT_LINES + MAX_TEXT_LINES > numItems) {
+            lines = numItems - (page - 1) * MAX_TEXT_LINES;
+        }
+        _get_list(&displayedItems, (page - 1) * MAX_TEXT_LINES, lines, SORT_ASC, SORT_NAME);
+    }
+
     return displayedItems;
 }
 
@@ -210,7 +205,7 @@ UI::ListSelection::draw()
         display->setCursor(0, i * 8);
 
         /* Print out the index number of the item */
-        if (menuType == MENU_TYPE_PLAYLIST && _playlist_engine) {
+        if (menu_type == MENU_TYPE_PLAYLIST && _playlist_engine) {
             if (_playlist_showindex && i == _playlist_engine->getCurrentTrackIndex() && _playlist_engine->isDriver())
                 display->setTextColor(BLACK, WHITE);
             else
@@ -238,14 +233,14 @@ UI::ListSelection::cursorUp()
     if (cursor > 0) {
         cursor--;
         selectedIndex--;
-        transport->playUIsound(click, click_len);
+        Transport::get_handle()->playUIsound(click, click_len);
     }
 
     else if (cursor == 0 && page > 1) {
         page--;
         cursor = MAX_TEXT_LINES - 1;
         selectedIndex--;
-        transport->playUIsound(click, click_len);
+        Transport::get_handle()->playUIsound(click, click_len);
     }
 }
 
@@ -255,14 +250,14 @@ UI::ListSelection::cursorDown()
     if (cursor < MAX_TEXT_LINES - 1 && page <= numPages() && selectedIndex < numItems - 1) {
         cursor++;
         selectedIndex++;
-        transport->playUIsound(click, click_len);
+        Transport::get_handle()->playUIsound(click, click_len);
     }
 
     else if (cursor == MAX_TEXT_LINES - 1 && page < numPages()) {
         page++;
         cursor = 0;
         selectedIndex++;
-        transport->playUIsound(click, click_len);
+        Transport::get_handle()->playUIsound(click, click_len);
     }
 }
 

@@ -28,14 +28,11 @@
 #define SDFAT_FILE_TYPE 3
 #include <Adafruit_GFX.h>
 #include <Adafruit_SSD1306.h>
-#include <ESPAsyncWebServer.h>
 #include <SdFat.h>
 #include <Wire.h>
 #include <bluetooth.h>
 #include <buttons.h>
-#include <callbacks.h>
 #include <card_manager.h>
-#include <file_explorer.h>
 #include <functional>
 #include <menu.h>
 #include <playlist_engine.h>
@@ -48,6 +45,7 @@
 #include <ui/common.h>
 #include <ui_sounds.h>
 #include <vfs.h>
+#include <callbacks.h>
 
 SET_LOOP_TASK_STACK_SIZE(16 * 1024); /* 16KB */
 
@@ -66,45 +64,35 @@ SET_LOOP_TASK_STACK_SIZE(16 * 1024); /* 16KB */
  * stored in plaintext in the preferences storage.  This is a security risk
  * should the device be lost or stolen.
  */
-
-Bluetooth* bluetooth = nullptr;           /* Bluetooth module */
-CardManager* sdfs = nullptr;              /* SD card controller */
-Buttons* buttons = nullptr;               /* Buttons */
 Adafruit_SSD1306* display = nullptr;      /* Display */
 Screensaver* screensaver = nullptr;       /* Screensaver */
-SystemConfig* systemConfig = nullptr;     /* System configuration */
-Transport* transport = nullptr;           /* Transport controls (play, pause, stop, load, etc) */
 UI::StatusScreen* statusScreen = nullptr; /* Status screen */
 UI::FileBrowser* filebrowser = nullptr;   /* File browser */
 UI::SystemMessage* notify = nullptr;      /* System messages */
 PlaylistEngine* playlistEngine = nullptr; /* Playlist engine */
-AsyncWebServer* server = nullptr;         /* Web server */
 
 void
 checkButtons()
 {
-    if (buttons->getButtonEvent(BUTTON_EXIT, SHORTPRESS)) {
-        if (buttons->isHeld(BUTTON_MENU) && playlistEngine->isEnabled()) {
+    if (Buttons::get_handle()->getButtonEvent(BUTTON_EXIT, SHORTPRESS)) {
+        if (Buttons::get_handle()->isHeld(BUTTON_MENU) && playlistEngine->isEnabled()) {
             uint16_t selection = playlistEngine->view(true);
             if (selection != UI::UI_EXIT) {
                 playlistEngine->setCurrentTrack(selection);
                 bool wasPlaying = false;
-                if (transport->getStatus() == TRANSPORT_PLAYING) {
-                    transport->stop();
+                if (Transport::get_handle()->getStatus() == TRANSPORT_PLAYING) {
+                    Transport::get_handle()->stop();
                     wasPlaying = true;
                 }
-                transport->load(playlistEngine->getCurrentTrack());
+                Transport::get_handle()->load(playlistEngine->getCurrentTrack());
                 if (wasPlaying) {
-                    transport->play();
+                    Transport::get_handle()->play();
                 }
             }
         }
 
         else {
-            if (transport->getStatus() != TRANSPORT_CONNECTING) {
-
-                File_Explorer fileExplorer;
-                fileExplorer.init();
+            if (Transport::get_handle()->getStatus() != TRANSPORT_CONNECTING) {
 
                 MediaData mediadata = filebrowser->get();
 
@@ -115,57 +103,57 @@ checkButtons()
                         if (playlistEngine->isEnabled()) {
                             playlistEngine->eject();
                         }
-                        transport->load(mediadata);
+                        Transport::get_handle()->load(mediadata);
                     }
                 }
             }
         }
     }
 
-    if (buttons->getButtonEvent(BUTTON_PLAY, SHORTPRESS)) {
-        if (transport->getStatus() == TRANSPORT_PLAYING) {
-            transport->pause();
+    if (Buttons::get_handle()->getButtonEvent(BUTTON_PLAY, SHORTPRESS)) {
+        if (Transport::get_handle()->getStatus() == TRANSPORT_PLAYING) {
+            Transport::get_handle()->pause();
             if (playlistEngine->isEnabled()) {
                 playlistEngine->stop();
             }
-        } else if (transport->getStatus() == TRANSPORT_STOPPED || transport->getStatus() == TRANSPORT_PAUSED) {
-            if (transport->getLoadedMedia().source == REMOTE_FILE && WiFi.status() == WL_CONNECTED) {
-                transport->play();
+        } else if (Transport::get_handle()->getStatus() == TRANSPORT_STOPPED || Transport::get_handle()->getStatus() == TRANSPORT_PAUSED) {
+            if (Transport::get_handle()->getLoadedMedia().source == REMOTE_FILE && WiFi.status() == WL_CONNECTED) {
+                Transport::get_handle()->play();
                 if (playlistEngine->isEnabled()) {
                     playlistEngine->play();
                 }
             }
 
-            else if (transport->getLoadedMedia().source == REMOTE_FILE && WiFi.status() != WL_CONNECTED)
+            else if (Transport::get_handle()->getLoadedMedia().source == REMOTE_FILE && WiFi.status() != WL_CONNECTED)
                 notify->show("WiFi not connected!", 2000, false);
 
-            else if (transport->getLoadedMedia().source == LOCAL_FILE)
-                transport->play();
+            else if (Transport::get_handle()->getLoadedMedia().source == LOCAL_FILE)
+                Transport::get_handle()->play();
         }
     }
-    if (buttons->getButtonEvent(BUTTON_STOP, SHORTPRESS)) {
-        if (transport->getStatus() == TRANSPORT_PLAYING || transport->getStatus() == TRANSPORT_PAUSED) {
-            transport->stop();
+    if (Buttons::get_handle()->getButtonEvent(BUTTON_STOP, SHORTPRESS)) {
+        if (Transport::get_handle()->getStatus() == TRANSPORT_PLAYING || Transport::get_handle()->getStatus() == TRANSPORT_PAUSED) {
+            Transport::get_handle()->stop();
             if (playlistEngine->isEnabled()) {
                 playlistEngine->stop();
             }
-        } else if (transport->getStatus() == TRANSPORT_STOPPED) {
-            transport->eject();
+        } else if (Transport::get_handle()->getStatus() == TRANSPORT_STOPPED) {
+            Transport::get_handle()->eject();
             if (playlistEngine->isEnabled()) {
                 playlistEngine->eject();
             }
         }
     }
 
-    if (buttons->getButtonEvent(BUTTON_UP, SHORTPRESS)) {
-        if (buttons->isHeld(BUTTON_MENU) && playlistEngine->isEnabled()) {
+    if (Buttons::get_handle()->getButtonEvent(BUTTON_UP, SHORTPRESS)) {
+        if (Buttons::get_handle()->isHeld(BUTTON_MENU) && playlistEngine->isEnabled()) {
             if (playlistEngine->available()) {
                 notify->show("Loading next...", 200, false);
                 playlistEngine->next();
-                if (transport->getStatus() == TRANSPORT_PLAYING) {
-                    transport->stop();
-                    transport->load(playlistEngine->getCurrentTrack());
-                    transport->play();
+                if (Transport::get_handle()->getStatus() == TRANSPORT_PLAYING) {
+                    Transport::get_handle()->stop();
+                    Transport::get_handle()->load(playlistEngine->getCurrentTrack());
+                    Transport::get_handle()->play();
                 }
             } else
                 notify->show("End of playlist!", 1000, false);
@@ -175,25 +163,25 @@ checkButtons()
         else {
             /* Create a ValueSelector object to adjust the volume using callbacks to the transport */
             UI::ValueSelector* volumeSelector = new UI::ValueSelector("Volume",
-                                                                      std::bind(&Transport::getVolume, transport),
-                                                                      std::bind(&Transport::volumeUp, transport),
-                                                                      std::bind(&Transport::volumeDown, transport),
-                                                                      transport->getMinVolume(),
-                                                                      transport->getMaxVolume());
+                                                                      std::bind(&Transport::getVolume, Transport::get_handle()),
+                                                                      std::bind(&Transport::volumeUp, Transport::get_handle()),
+                                                                      std::bind(&Transport::volumeDown, Transport::get_handle()),
+                                                                      Transport::get_handle()->getMinVolume(),
+                                                                      Transport::get_handle()->getMaxVolume());
             volumeSelector->get();
             delete volumeSelector;
         }
     }
 
-    if (buttons->getButtonEvent(BUTTON_DOWN, SHORTPRESS)) {
-        if (buttons->isHeld(BUTTON_MENU) && playlistEngine->isEnabled()) {
+    if (Buttons::get_handle()->getButtonEvent(BUTTON_DOWN, SHORTPRESS)) {
+        if (Buttons::get_handle()->isHeld(BUTTON_MENU) && playlistEngine->isEnabled()) {
             if (playlistEngine->getCurrentTrackIndex() > 0) {
                 notify->show("Loading previous...", 200, false);
                 playlistEngine->previous();
-                if (transport->getStatus() == TRANSPORT_PLAYING) {
-                    transport->stop();
-                    transport->load(playlistEngine->getCurrentTrack());
-                    transport->play();
+                if (Transport::get_handle()->getStatus() == TRANSPORT_PLAYING) {
+                    Transport::get_handle()->stop();
+                    Transport::get_handle()->load(playlistEngine->getCurrentTrack());
+                    Transport::get_handle()->play();
                 }
             } else
                 notify->show("Start of playlist!", 1000, false);
@@ -203,33 +191,33 @@ checkButtons()
         else {
             /* Create a ValueSelector object to adjust the volume using callbacks to the transport */
             UI::ValueSelector* volumeSelector = new UI::ValueSelector("Volume",
-                                                                      std::bind(&Transport::getVolume, transport),
-                                                                      std::bind(&Transport::volumeUp, transport),
-                                                                      std::bind(&Transport::volumeDown, transport),
-                                                                      transport->getMinVolume(),
-                                                                      transport->getMaxVolume());
+                                                                      std::bind(&Transport::getVolume, Transport::get_handle()),
+                                                                      std::bind(&Transport::volumeUp, Transport::get_handle()),
+                                                                      std::bind(&Transport::volumeDown, Transport::get_handle()),
+                                                                      Transport::get_handle()->getMinVolume(),
+                                                                      Transport::get_handle()->getMaxVolume());
             volumeSelector->get();
             delete volumeSelector;
         }
     }
 
-    if (buttons->getButtonEvent(BUTTON_UP, LONGPRESS)) {
-        transport->volumeUp();
-        buttons->repeat(BUTTON_UP);
+    if (Buttons::get_handle()->getButtonEvent(BUTTON_UP, LONGPRESS)) {
+        Transport::get_handle()->volumeUp();
+        Buttons::get_handle()->repeat(BUTTON_UP);
     }
 
-    if (buttons->getButtonEvent(BUTTON_DOWN, LONGPRESS)) {
-        transport->volumeDown();
-        buttons->repeat(BUTTON_DOWN);
+    if (Buttons::get_handle()->getButtonEvent(BUTTON_DOWN, LONGPRESS)) {
+        Transport::get_handle()->volumeDown();
+        Buttons::get_handle()->repeat(BUTTON_DOWN);
     }
 
-    if (buttons->getButtonEvent(BUTTON_MENU, LONGPRESS)) {
-        transport->playUIsound(folder_open, folder_open_len);
+    if (Buttons::get_handle()->getButtonEvent(BUTTON_MENU, LONGPRESS)) {
+        Transport::get_handle()->playUIsound(folder_open, folder_open_len);
         mainMenu();
     }
 
     /* Since we aren't using the shortpress event for the menu button, we can use it to disable the screensaver */
-    if (buttons->isHeld(BUTTON_MENU)) {
+    if (Buttons::get_handle()->isHeld(BUTTON_MENU)) {
         screensaver->reset();
     }
 }
@@ -237,9 +225,10 @@ checkButtons()
 void
 setup()
 {
-    /* Register custom VFS using SdFat as the backend */
+    /* Register custom VFS from vfs.h using SdFat as the backend. This does the magic for
+    SQLite3 to be able to read and write to the SD card using Bill Greiman's
+    wonderful SdFat library */
     esp_vfs_register("/sdfat", &sdfat_vfs, NULL);
-    sqlite3_initialize();
 
     Serial.begin(115200);
     log_i("This software is licensed under the GNU Public License v3.0");
@@ -247,7 +236,6 @@ setup()
     log_i("Free PSRAM: %d", ESP.getFreePsram());
     log_i("Free stack: %d", uxTaskGetStackHighWaterMark(NULL));
     log_i("Starting system...");
-    buttons = new Buttons();
     display = new Adafruit_SSD1306(SCREEN_WIDTH, SCREEN_HEIGHT, &Wire, OLED_RESET); /* Display object */
     Wire.setPins(DISPLAY_DATA_PIN, DISPLAY_CLOCK_PIN);
     Wire.begin();
@@ -282,24 +270,20 @@ setup()
             ;
     }
 
-    systemConfig = new SystemConfig();
-    transport = new Transport();
-    playlistEngine = new PlaylistEngine(std::function<bool(MediaData)>(std::bind(&Transport::load, transport, std::placeholders::_1)),
-                                        std::function<bool()>(std::bind(&Transport::play, transport)),
-                                        std::function<void()>(std::bind(&Transport::stop, transport)),
-                                        std::function<uint8_t()>(std::bind(&Transport::getStatus, transport)));
+    playlistEngine = new PlaylistEngine(std::function<bool(MediaData)>(std::bind(&Transport::load, Transport::get_handle(), std::placeholders::_1)),
+                                        std::function<bool()>(std::bind(&Transport::play, Transport::get_handle())),
+                                        std::function<void()>(std::bind(&Transport::stop, Transport::get_handle())),
+                                        std::function<uint8_t()>(std::bind(&Transport::getStatus, Transport::get_handle())));
     notify = new UI::SystemMessage();
     screensaver = new Screensaver();
-    transport->begin();
+    Transport::get_handle()->begin();
     statusScreen = new UI::StatusScreen();
-    systemConfig->begin();
-    sdfs = new CardManager();
-    sdfs->begin();
+    Config_Manager::get_handle()->begin();
+    Card_Manager::get_handle()->begin();
     filebrowser = new UI::FileBrowser();
     notify->show("Starting system...", 0, false);
-    bluetooth = new Bluetooth();
-    bluetooth->begin();
-    bluetooth->powerOff();
+    Bluetooth::get_handle()->begin();
+    Bluetooth::get_handle()->powerOff();
 
     /* WiFi event callbacks */
     WiFiEventId_t wifiDisconnected = WiFi.onEvent(onWifiDisconnected, WiFiEvent_t::ARDUINO_EVENT_WIFI_STA_DISCONNECTED);
@@ -309,33 +293,6 @@ setup()
 
     /* Event handler for when we cannot connect to the network */
     WiFiEventId_t wifiConnectFailed = WiFi.onEvent(onWifiFailed, WiFiEvent_t::ARDUINO_EVENT_WIFI_STA_START);
-    sqlite3* db;
-    int rc = sqlite3_open("/sdfat/2000.db", &db);
-    if (rc != SQLITE_OK) {
-        log_e("Failed to open database file");
-        log_e("Error: %s", sqlite3_errmsg(db));
-    }
-    char* data = NULL;
-    rc = sqlite3_exec(
-      db,
-      "Select * from surnames where name = 'MICHELLE'",
-      [](void* data, int argc, char** argv, char** azColName) -> int {
-          int i;
-          log_i("Callback function called");
-          for (i = 0; i < argc; i++) {
-              Serial.printf("%s = %s\n", azColName[i], argv[i] ? argv[i] : "NULL");
-          }
-          Serial.printf("\n");
-          return 0;
-      },
-      (void*) data,
-      NULL);
-    if (rc != SQLITE_OK) {
-        log_e("Failed to execute SQL statement");
-        log_e("Error: %s", sqlite3_errmsg(db));
-    }
-    sqlite3_close(db);
-      
 }
 
 void

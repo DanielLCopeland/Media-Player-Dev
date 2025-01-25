@@ -25,35 +25,52 @@
 #ifndef card_manager_h
 #define card_manager_h
 
-#define CARD_DETECT_PIN 39
+#define CARD_DETECT_PIN       39
 #define INSERTION_DEBOUNCE_MS 500
-#define REMOVAL_DEBOUNCE_MS 5
-#define SD_CS_PIN 38
-#define SD_CONFIG SdSpiConfig(SD_CS_PIN, DEDICATED_SPI, SD_SCK_MHZ(20), &SPI)
+#define REMOVAL_DEBOUNCE_MS   5
+#define SD_CS_PIN             38
+#define SD_CONFIG             SdSpiConfig(SD_CS_PIN, DEDICATED_SPI, SD_SCK_MHZ(20), &SPI)
 
 #include <SdFat.h>
 #include <transport.h>
 
 class Transport;
 class PlaylistEngine;
-extern Transport* transport;
 extern PlaylistEngine* playlistEngine;
 
-class CardManager : public SdFs
+class Card_Manager : public SdFs
 {
-public:
+  public:
+    Card_Manager(const Card_Manager&) = delete;
     void begin();
     void update();
     bool isReady();
+    void end() { return SdFs::end(); }
     bool check_card_detect();
+    static Card_Manager* get_handle()
+    {
+        if (!_handle) {
+            _handle = new Card_Manager();
+        }
+        return _handle;
+    }
 
-private:
+  private:
+    Card_Manager()
+      : SdFs()
+    {
+    }
+    ~Card_Manager()
+    {
+        SdFs::end();
+        delete _handle;
+    }
     bool isReadyFlag = false;
     bool lastState = false;
     bool lock = false;
     uint32_t lastInsertionCheck = 0;
     uint32_t lastRemovalCheck = 0;
-    
+    static Card_Manager* _handle;
 };
 
 #endif

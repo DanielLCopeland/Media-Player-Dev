@@ -28,6 +28,7 @@
  */
 #ifndef playlist_engine_h
 #define playlist_engine_h
+#define PLAYLIST_DIR "/playlists"
 
 #include <SdFat.h>
 #include <functional>
@@ -43,8 +44,7 @@
 
 class MediaData;
 class Transport;
-class CardManager;
-extern CardManager* sdfs;
+class Card_Manager;
 
 /* We must limit the size of the playlist to prevent memory issues */
 #define PLAYLIST_TRACK_LIMIT 1500

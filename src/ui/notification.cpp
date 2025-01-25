@@ -35,9 +35,7 @@ UI::SystemMessage::show(std::string message, uint16_t duration, bool animated)
     display->setTextColor(WHITE, BLACK);
     display->setCursor(0, 0);
     display->print(message.c_str());
-
-    serviceLoop();
-
+    
     if (animated) {
         if (animationTimer.check(NOTIFICATION_ANIMATION_FRAME_DURATION)) {
             animationFrame++;
@@ -75,12 +73,12 @@ UI::SystemMessage::show(std::string message, uint16_t duration, bool animated)
             serviceLoop();
 
             // If any of the buttons are pushed, immediately exit the notification
-            if (buttons->getButtonEvent(BUTTON_PLAY, SHORTPRESS && !buttons->isHeld(BUTTON_MENU)) ||
-                buttons->getButtonEvent(BUTTON_STOP, SHORTPRESS && !buttons->isHeld(BUTTON_MENU)) ||
-                buttons->getButtonEvent(BUTTON_UP, SHORTPRESS && !buttons->isHeld(BUTTON_MENU)) ||
-                buttons->getButtonEvent(BUTTON_DOWN, SHORTPRESS && !buttons->isHeld(BUTTON_MENU)) ||
-                buttons->getButtonEvent(BUTTON_MENU, SHORTPRESS && !buttons->isHeld(BUTTON_MENU)) ||
-                buttons->getButtonEvent(BUTTON_EXIT, SHORTPRESS && !buttons->isHeld(BUTTON_MENU))) {
+            if (Buttons::get_handle()->getButtonEvent(BUTTON_PLAY, SHORTPRESS && !Buttons::get_handle()->isHeld(BUTTON_MENU)) ||
+                Buttons::get_handle()->getButtonEvent(BUTTON_STOP, SHORTPRESS && !Buttons::get_handle()->isHeld(BUTTON_MENU)) ||
+                Buttons::get_handle()->getButtonEvent(BUTTON_UP, SHORTPRESS && !Buttons::get_handle()->isHeld(BUTTON_MENU)) ||
+                Buttons::get_handle()->getButtonEvent(BUTTON_DOWN, SHORTPRESS && !Buttons::get_handle()->isHeld(BUTTON_MENU)) ||
+                Buttons::get_handle()->getButtonEvent(BUTTON_MENU, SHORTPRESS && !Buttons::get_handle()->isHeld(BUTTON_MENU)) ||
+                Buttons::get_handle()->getButtonEvent(BUTTON_EXIT, SHORTPRESS && !Buttons::get_handle()->isHeld(BUTTON_MENU))) {
                 notificationTimer.reset();
                 return;
             }

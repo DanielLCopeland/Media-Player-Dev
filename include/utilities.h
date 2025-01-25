@@ -1,8 +1,8 @@
 /**
- * @file status.h
+ * @file utilities.h
  *
- * @brief Displays the main status screen. Part of the UI library.
- * 
+ * @brief Various utility functions I couldn't find a better place for.
+ *
  * @author Dan Copeland
  *
  * Licensed under GPL v3.0
@@ -21,36 +21,25 @@
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-#ifndef status_h
-#define status_h
+#ifndef utilities_h
+#define utilities_h
 
-#include <ui/common.h>
+#include <string>
 
-class Marquee;
-class Animation;
-class SpectrumAnalyzer;
-class Bluetooth;
-
-namespace UI {
-
-class StatusScreen
+static std::string
+escape_single_quotes(const std::string& input)
 {
-  public:
-    StatusScreen();
-    void draw();
+    std::string escaped_string;
+    escaped_string.reserve(input.size());
 
-  private:
-    uint16_t* spectrumAnalyzerCurrentVal;
-    uint16_t* spectrumAnalyzerPeak;
-    size_t playTime = 0;
-    Animation* anim_playing = nullptr;
-    Animation* anim_stopped = nullptr;
-    Marquee* marquee_mediainfo = nullptr;
-    Marquee* marquee_datetime = nullptr;
-    Marquee* marquee_connectStatus = nullptr;
-    SpectrumAnalyzer* spectrumAnalyzer = nullptr;
-};
-
-} // namespace UI
+    for (char c : input) {
+        if (c == '\'') {
+            escaped_string += "''";
+        } else {
+            escaped_string += c;
+        }
+    }
+    return escaped_string;
+}
 
 #endif

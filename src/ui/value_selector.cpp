@@ -66,38 +66,38 @@ UI::ValueSelector::get()
 
         serviceLoop();
 
-        if (buttons->getButtonEvent(BUTTON_EXIT, SHORTPRESS)) {
-            transport->playUIsound(folder_close, folder_close_len);
+        if (Buttons::get_handle()->getButtonEvent(BUTTON_EXIT, SHORTPRESS)) {
+            Transport::get_handle()->playUIsound(folder_close, folder_close_len);
             return UI_EXIT;
         }
 
-        if (buttons->getButtonEvent(BUTTON_STOP, SHORTPRESS)) {
-            transport->playUIsound(folder_close, folder_close_len);
+        if (Buttons::get_handle()->getButtonEvent(BUTTON_STOP, SHORTPRESS)) {
+            Transport::get_handle()->playUIsound(folder_close, folder_close_len);
             return UI_EXIT;
         }
 
-        if (buttons->getButtonEvent(BUTTON_PLAY, SHORTPRESS)) {
-            transport->playUIsound(folder_close, folder_close_len);
+        if (Buttons::get_handle()->getButtonEvent(BUTTON_PLAY, SHORTPRESS)) {
+            Transport::get_handle()->playUIsound(folder_close, folder_close_len);
             return _value;
         }
 
-        if (buttons->getButtonEvent(BUTTON_UP, SHORTPRESS)) {
+        if (Buttons::get_handle()->getButtonEvent(BUTTON_UP, SHORTPRESS)) {
             inc();
         }
 
-        if (buttons->getButtonEvent(BUTTON_DOWN, SHORTPRESS)) {
+        if (Buttons::get_handle()->getButtonEvent(BUTTON_DOWN, SHORTPRESS)) {
             dec();
         }
 
         /* Longpress events */
-        if (buttons->getButtonEvent(BUTTON_UP, LONGPRESS)) {
+        if (Buttons::get_handle()->getButtonEvent(BUTTON_UP, LONGPRESS)) {
             inc();
-            buttons->repeat(BUTTON_UP);
+            Buttons::get_handle()->repeat(BUTTON_UP);
         }
 
-        if (buttons->getButtonEvent(BUTTON_DOWN, LONGPRESS)) {
+        if (Buttons::get_handle()->getButtonEvent(BUTTON_DOWN, LONGPRESS)) {
             dec();
-            buttons->repeat(BUTTON_DOWN);
+            Buttons::get_handle()->repeat(BUTTON_DOWN);
         }
 
         draw();
@@ -118,7 +118,7 @@ UI::ValueSelector::inc()
         if (_value < _maxVal)
             _value += _step;
     }
-    transport->playUIsound(click, click_len);
+    Transport::get_handle()->playUIsound(click, click_len);
     exitTimer.reset();
 }
 
@@ -132,7 +132,7 @@ UI::ValueSelector::dec()
         if (_value > _minVal)
             _value -= _step;
     }
-    transport->playUIsound(click, click_len);
+    Transport::get_handle()->playUIsound(click, click_len);
     exitTimer.reset();
 }
 

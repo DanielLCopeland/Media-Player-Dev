@@ -33,8 +33,6 @@
 
 #define PATH_MAX 512
 
-extern CardManager* sdfs;
-
 struct file_descriptor
 {
     int fd;
@@ -59,7 +57,7 @@ vfs_get_file_handle(int fd)
 static ssize_t
 vfs_write(int fd, const void* data, size_t size)
 {
-    if (!sdfs->isReady()) {
+    if (!Card_Manager::get_handle()->isReady()) {
         return -1;
     }
 
@@ -70,7 +68,14 @@ vfs_write(int fd, const void* data, size_t size)
     }
 
     if (file->isOpen()) {
-        return file->write(data, size);
+        file->clearWriteError();
+        size_t ret = file->write(data, size);
+        if (file->getWriteError()) {
+            char filename[PATH_MAX];
+            file->getName(filename, PATH_MAX);
+            return -1;
+        }
+        return ret;
     } else {
         return -1;
     }
@@ -79,7 +84,7 @@ vfs_write(int fd, const void* data, size_t size)
 static ssize_t
 vfs_read(int fd, void* dst, size_t size)
 {
-    if (!sdfs->isReady()) {
+    if (!Card_Manager::get_handle()->isReady()) {
         return -1;
     }
 
@@ -90,7 +95,8 @@ vfs_read(int fd, void* dst, size_t size)
     }
 
     if (file->isOpen()) {
-        return file->read(dst, size);
+        size_t ret = file->read(dst, size);
+        return ret;
     } else {
         return -1;
     }
@@ -99,18 +105,17 @@ vfs_read(int fd, void* dst, size_t size)
 static int
 vfs_open(const char* path, int flags, int mode)
 {
-    if (!sdfs->isReady() || strlen(path) > PATH_MAX) {
+    if (!Card_Manager::get_handle()->isReady() || strlen(path) > PATH_MAX) {
         return -1;
     }
 
     file_descriptor file;
     file.handle = new FsFile();
 
-    if (!file.handle->open(path, flags)) {
+    if (!file.handle->open(path, O_RDWR | O_CREAT)) {
         delete file.handle;
         return -1;
     }
-
     /* Generate a unique file descriptor that is not already in use */
     int fd = 1;
     for (auto& f : file_descriptors) {
@@ -144,7 +149,7 @@ vfs_close(int fd)
 static int
 vfs_fstat(int fd, struct stat* st)
 {
-    if (!sdfs->isReady()) {
+    if (!Card_Manager::get_handle()->isReady()) {
         return -1;
     }
 
@@ -170,7 +175,7 @@ vfs_fstat(int fd, struct stat* st)
 static off_t
 vfs_lseek(int fd, off_t offset, int mode)
 {
-    if (!sdfs->isReady()) {
+    if (!Card_Manager::get_handle()->isReady()) {
         return -1;
     }
 
@@ -199,7 +204,7 @@ vfs_lseek(int fd, off_t offset, int mode)
 static int
 vfs_link(const char* oldpath, const char* newpath)
 {
-    if (!sdfs->isReady() || strlen(oldpath) > PATH_MAX || strlen(newpath) > PATH_MAX) {
+    if (!Card_Manager::get_handle()->isReady() || strlen(oldpath) > PATH_MAX || strlen(newpath) > PATH_MAX) {
         return -1;
     }
 
@@ -209,7 +214,7 @@ vfs_link(const char* oldpath, const char* newpath)
 static int
 vfs_unlink(const char* path)
 {
-    if (!sdfs->isReady() || strlen(path) > PATH_MAX) {
+    if (!Card_Manager::get_handle()->isReady() || strlen(path) > PATH_MAX) {
         return -1;
     }
 
@@ -223,7 +228,7 @@ vfs_unlink(const char* path)
         }
     }
 
-    if (!sdfs->remove(path)) {
+    if (!Card_Manager::get_handle()->remove(path)) {
         return -1;
     }
 
@@ -233,7 +238,7 @@ vfs_unlink(const char* path)
 static int
 vfs_rename(const char* oldpath, const char* newpath)
 {
-    if (!sdfs->isReady()) {
+    if (!Card_Manager::get_handle()->isReady()) {
         return -1;
     }
 
@@ -247,11 +252,66 @@ vfs_rename(const char* oldpath, const char* newpath)
         }
     }
 
-    if (!sdfs->rename(oldpath, newpath)) {
+    if (!Card_Manager::get_handle()->rename(oldpath, newpath)) {
         return -1;
     }
 
-    return -1;
+    return 1;
+}
+
+static int
+vfs_truncate(const char* path, off_t length)
+{
+    FsFile file;
+
+    if (!Card_Manager::get_handle()->isReady()) {
+        return -1;
+    }
+
+    if (!Card_Manager::get_handle()->exists(path)) {
+        return -1;
+    }
+
+    if (!file.open(path, O_RDWR)) {
+        return -1;
+    }
+
+    if (!file.truncate(length)) {
+        return -1;
+    }
+
+    return 1;
+}
+
+static int
+vfs_access(const char* path, int mode)
+{
+    if (!Card_Manager::get_handle()->isReady()) {
+        return -1;
+    }
+
+    if (Card_Manager::get_handle()->exists(path)) {
+        return 0;
+    } else {
+        return -1;
+    }
+}
+
+static int
+vfs_fsync(int fd)
+{
+    FsFile* file = vfs_get_file_handle(fd);
+
+    if (file == nullptr) {
+        return -1;
+    }
+
+    if (file->isOpen()) {
+        file->sync();
+        return 0;
+    } else {
+        return -1;
+    }
 }
 
 static esp_vfs_t sdfat_vfs = {
@@ -265,6 +325,9 @@ static esp_vfs_t sdfat_vfs = {
     .link = &vfs_link,
     .unlink = &vfs_unlink,
     .rename = &vfs_rename,
+    .fsync = &vfs_fsync,
+    .access = &vfs_access,
+    .truncate = &vfs_truncate
 };
 
 #endif /* vfs_h */

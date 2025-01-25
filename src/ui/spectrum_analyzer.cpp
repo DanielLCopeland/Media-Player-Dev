@@ -27,10 +27,10 @@
 
 UI::SpectrumAnalyzer::SpectrumAnalyzer()
 {
-    if (!transport) {
+    if (!Transport::get_handle()) {
         return;
     }
-    bands = transport->spectrumAnalyzer->getBands();
+    bands = Transport::get_handle()->spectrumAnalyzer->getBands();
     _currentVal = new uint16_t[bands];
     _peak = new uint16_t[bands];
     memset(_currentVal, 0, sizeof(uint16_t) * bands);
@@ -41,13 +41,13 @@ void
 UI::SpectrumAnalyzer::draw(uint16_t x, uint16_t y, uint16_t width, uint16_t height)
 {
     if (_updateTimer.check(refresh_interval)) {
-        transport->spectrumAnalyzer->getVals(_currentVal, _peak);
+        Transport::get_handle()->spectrumAnalyzer->getVals(_currentVal, _peak);
     }
     
     /* Draw each line, with the width given, in pixels */
     uint8_t count = bands;
     for (uint8_t i = 0; i < bands; i++) {
-        bool peak_visible = transport->spectrumAnalyzer->isPeakVisible(i);
+        bool peak_visible = Transport::get_handle()->spectrumAnalyzer->isPeakVisible(i);
         count--;
         uint16_t val = map(_currentVal[i], 0, 2048, 0, height);
         if (val > height) {

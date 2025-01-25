@@ -24,6 +24,23 @@
 #ifndef data_h
 #define data_h
 
+enum error_code_t : uint8_t
+{
+    ERR_SUCCESS,
+    ERR_FAILURE,
+    ERR_NOT_FOUND,
+    ERR_ALREADY_EXISTS,
+    ERR_INVALID,
+};
+
+enum sort_order_t : uint8_t
+{
+    SORT_ASC,
+    SORT_DESC,
+    SORT_NAME,
+    SORT_TYPE,
+};
+
 namespace MENUDATA {
 
 /****************************************************
@@ -207,10 +224,11 @@ enum items : uint16_t
 {
     ASC,
     DESC,
-    DIR,
+    NAME,
+    TYPE,
     SIZE
 };
-const char* const menu[] PROGMEM = { "Sort Ascending", "Sort Descending", "Sort by Directory" };
+const char* const menu[] PROGMEM = { "Sort ascending", "Sort descending", "Sort by name", "Sort by type" };
 }
 
 }

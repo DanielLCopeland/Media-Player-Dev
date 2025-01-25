@@ -45,8 +45,6 @@ class SystemMessage;
 class Timer;
 class Buttons;
 
-extern Buttons* buttons;
-
 enum BluetoothMode : uint8_t
 {
     POWER_ON,
@@ -60,7 +58,7 @@ const char* const cmd_BAUD PROGMEM = "AT+BAUD?";
 const char* const cmd_STATUS PROGMEM = "AT+STATUS?";
 const char* const cmd_DISCON PROGMEM = "AT+DISCON";
 const char* const cmd_SCAN PROGMEM = "AT+PAIR";
-const char* const cmd_ADDLINKADD PROGMEM = "AT+ADDLINKADD=0x";   /* 12 character hex string */
+const char* const cmd_ADDLINKADD PROGMEM = "AT+ADDLINKADD=0x"; /* 12 character hex string */
 const char* const cmd_ADDLINKNAME PROGMEM = "AT+ADDLINKNAME=";
 const char* const cmd_VMLINK PROGMEM = "AT+VMLINK?";
 const char* const cmd_DELVMLINK PROGMEM = "AT+DELVMLINK";
@@ -79,6 +77,9 @@ const char* const cmdsPowerOff[] PROGMEM = { cmd_AT, cmd_PWROFF };
 class Bluetooth
 {
   private:
+    Bluetooth() { _bluetooth = nullptr; }
+    ~Bluetooth() { end(); }
+
     static SoftwareSerial* _bluetooth;
     static void _onReceive();
     static void readData();
@@ -90,10 +91,17 @@ class Bluetooth
     static Timer _timer;
     static uint8_t scanCount;
     static UI::SystemMessage* _systemMessage;
+    static Bluetooth* _handle;
 
   public:
-    Bluetooth();
-    ~Bluetooth() { end(); }
+    Bluetooth(const Bluetooth& obj) = delete;
+    static Bluetooth* get_handle()
+    {
+        if (Bluetooth::_handle == nullptr) {
+            Bluetooth::_handle = new Bluetooth();
+        }
+        return Bluetooth::_handle;
+    }
     void begin();
     void end();
     void loop(); /* Call this in the main loop to check for incoming data and run housekeeping tasks */

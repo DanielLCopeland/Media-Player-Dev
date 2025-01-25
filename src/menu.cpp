@@ -80,14 +80,14 @@ infoScreen()
     /* Free heap */
     std::string freeHeapStr;
 
-    while (!timer.check(SYSTEM_INFO_DISPLAY_TIME_MS) && !buttons->getButtonEvent(BUTTON_EXIT, SHORTPRESS)) {
+    while (!timer.check(SYSTEM_INFO_DISPLAY_TIME_MS) && !Buttons::get_handle()->getButtonEvent(BUTTON_EXIT, SHORTPRESS)) {
         uptime = millis() / 1000;
         upTimeStr = std::to_string(uptime / 3600) + "h " + std::to_string((uptime % 3600) / 60) + "m " + std::to_string(uptime % 60) + "s";
         freeHeapStr = std::to_string(ESP.getFreeHeap() / 1024);
 
         message.show("Free RAM: " + freeHeapStr + "kB\nMAC: " + macStr + "\nUptime: " + upTimeStr, 0, false);
 
-        if (buttons->getButtonEvent(BUTTON_PLAY, LONGPRESS)) {
+        if (Buttons::get_handle()->getButtonEvent(BUTTON_PLAY, LONGPRESS)) {
             UI::BinarySelector binarySelector("Tetris", "Snake");
             if (binarySelector.get()) {
                 Snake snake;
@@ -136,7 +136,7 @@ systemMenu()
             case RESET:
                 notify.show("Resetting...", 2000, false);
                 log_i("Resetting preferences...");
-                systemConfig->resetPreferences();
+                Config_Manager::get_handle()->resetPreferences();
                 notify.show("Rebooting...", 0, false);
                 reboot();
                 break;
@@ -173,10 +173,10 @@ dateTimeMenu()
         switch (menuSelection) {
             case TIME:
 
-                input = textInput.get("Time: (HH:MM:SS)", systemConfig->getCurrentDateTime("%H:%M:%S"), 8, UI::INPUT_FORMAT_TIME);
+                input = textInput.get("Time: (HH:MM:SS)", Config_Manager::get_handle()->getCurrentDateTime("%H:%M:%S"), 8, UI::INPUT_FORMAT_TIME);
 
                 // Set the time
-                if (systemConfig->setTime(input))
+                if (Config_Manager::get_handle()->setTime(input))
                     notify.show("Time set!", 2000, false);
                 else
                     notify.show("Invalid time!", 2000, false);
@@ -184,19 +184,19 @@ dateTimeMenu()
 
             case DATE:
 
-                input = textInput.get("Date: (YYYY-MM-DD)", systemConfig->getCurrentDateTime("%Y-%m-%d"), 10, UI::INPUT_FORMAT_DATE);
+                input = textInput.get("Date: (YYYY-MM-DD)", Config_Manager::get_handle()->getCurrentDateTime("%Y-%m-%d"), 10, UI::INPUT_FORMAT_DATE);
 
                 // Set the date
-                if (systemConfig->setDate(input))
+                if (Config_Manager::get_handle()->setDate(input))
                     notify.show("Date set!", 2000, false);
                 else
                     notify.show("Invalid date!", 2000, false);
                 break;
 
             case TIMEZONE:
-                timezoneSelection = dateTimeMenu.get(tzData);
+                timezoneSelection = dateTimeMenu.get(&tzData);
                 if (timezoneSelection != UI::UI_EXIT) {
-                    systemConfig->setTimezone(tzData.get(timezoneSelection, 1));   // Row = timezoneSelection, Column = 1
+                    Config_Manager::get_handle()->setTimezone(tzData.get(timezoneSelection, 1));   // Row = timezoneSelection, Column = 1
                     notify.show("Timezone set!", 2000, false);
                 }
                 break;
@@ -229,21 +229,21 @@ alarmMenu()
 
         switch (selection) {
             case ENABLE:
-                systemConfig->enableAlarm();
+                Config_Manager::get_handle()->enableAlarm();
                 notify.show("Alarm enabled!", 2000, false);
                 break;
 
             case DISABLE:
-                systemConfig->disableAlarm();
+                Config_Manager::get_handle()->disableAlarm();
                 notify.show("Alarm disabled!", 2000, false);
                 break;
 
             case SET:
 
-                input = textInput.get("Time: (HH:MM:SS)", systemConfig->getAlarmTime().c_str(), 8, UI::INPUT_FORMAT_TIME);
+                input = textInput.get("Time: (HH:MM:SS)", Config_Manager::get_handle()->getAlarmTime().c_str(), 8, UI::INPUT_FORMAT_TIME);
 
                 // Set the alarm time
-                if (systemConfig->setAlarmTime(input))
+                if (Config_Manager::get_handle()->setAlarmTime(input))
                     notify.show("Alarm time set!", 2000, false);
                 else
                     notify.show("Invalid time!", 2000, false);
@@ -253,7 +253,7 @@ alarmMenu()
             case MEDIA:
                 mediadata = fileBrowser->get();
                 if (mediadata.loaded) {
-                    systemConfig->saveAlarmMedia(mediadata);
+                    Config_Manager::get_handle()->saveAlarmMedia(mediadata);
                     notify.show("Alarm media set!", 2000, false);
                 }
                 break;
@@ -285,20 +285,20 @@ wifiMenu()
         selection = (items) wifiToggleMenu.get(menu, SIZE);
 
         if (selection == ENABLE) {
-            systemConfig->enableWifi();
+            Config_Manager::get_handle()->enableWifi();
 
             while (WiFi.status() != WL_CONNECTED) {
                 notify.show("Connecting", 0, true);
                 if (WiFi.status() == WL_CONNECTED) {
                     notify.show("Connected!", 2000, false);
-                    log_i("Connected to SSID: %s", systemConfig->getWifiSSID().c_str());
+                    log_i("Connected to SSID: %s", Config_Manager::get_handle()->getWifiSSID().c_str());
                     break;
                 }
 
                 if (timeout.check(WIFI_CONNECTION_TIMEOUT_MS)) {
                     notify.show("Connection timed out!", 2000, false);
                     log_e("Connection to SSID timed out!");
-                    systemConfig->disableWifi();
+                    Config_Manager::get_handle()->disableWifi();
                     break;
                 }
             }
@@ -306,7 +306,7 @@ wifiMenu()
         }
 
         else if (selection == DISABLE) {
-            systemConfig->disableWifi();
+            Config_Manager::get_handle()->disableWifi();
             notify.show("Disconnected!", 2000, false);
         }
 
@@ -328,14 +328,14 @@ dhcpToggleMenu()
     selection = (items) dhcpToggleMenu.get(menu, SIZE);
 
     if (selection == ENABLE) {
-        transport->playUIsound(load_item, load_item_len);
-        systemConfig->enableDHCP();
+        Transport::get_handle()->playUIsound(load_item, load_item_len);
+        Config_Manager::get_handle()->enableDHCP();
         notify.show("DHCP enabled!", 2000, false);
         log_i("DHCP enabled!");
     }
 
     else if (selection == DISABLE) {
-        systemConfig->disableDHCP();
+        Config_Manager::get_handle()->disableDHCP();
         notify.show("DHCP disabled!", 2000, false);
         log_i("DHCP disabled!");
     }
@@ -372,50 +372,50 @@ networkMenu()
 
             case SEARCH:
 
-                transport->playUIsound(folder_open, folder_open_len);
+                Transport::get_handle()->playUIsound(folder_open, folder_open_len);
                 log_i("Starting SSID scanner");
                 ssidScanner();
                 break;
 
             case SSID:
 
-                transport->playUIsound(folder_open, folder_open_len);
-                log_i("Current SSID: %s", systemConfig->getWifiSSID().c_str());
-                systemConfig->setWifiSSID(textInput.get("SSID:", systemConfig->getWifiSSID(), 255, UI::INPUT_FORMAT_TEXT));
+                Transport::get_handle()->playUIsound(folder_open, folder_open_len);
+                log_i("Current SSID: %s", Config_Manager::get_handle()->getWifiSSID().c_str());
+                Config_Manager::get_handle()->setWifiSSID(textInput.get("SSID:", Config_Manager::get_handle()->getWifiSSID(), 255, UI::INPUT_FORMAT_TEXT));
                 break;
 
             case PASSWORD:
 
-                transport->playUIsound(folder_open, folder_open_len);
-                systemConfig->setWifiPassword(textInput.get("Password:", systemConfig->getWifiPassword(), 255, UI::INPUT_FORMAT_PASSWORD));
+                Transport::get_handle()->playUIsound(folder_open, folder_open_len);
+                Config_Manager::get_handle()->setWifiPassword(textInput.get("Password:", Config_Manager::get_handle()->getWifiPassword(), 255, UI::INPUT_FORMAT_PASSWORD));
                 break;
 
             case IP_ADDRESS:
 
-                transport->playUIsound(folder_open, folder_open_len);
+                Transport::get_handle()->playUIsound(folder_open, folder_open_len);
                 log_i("Current IP: %s", WiFi.localIP().toString().c_str());
 
-                if (systemConfig->isDHCPEnabled()) {
-                    notify.show("DHCP is enabled!\n\nCurrent IP:\n" + systemConfig->getIP(), 4000, false);
+                if (Config_Manager::get_handle()->isDHCPEnabled()) {
+                    notify.show("DHCP is enabled!\n\nCurrent IP:\n" + Config_Manager::get_handle()->getIP(), 4000, false);
                     break;
                 }
 
-                if (!systemConfig->setIP(textInput.get("IP Address", systemConfig->getIP(), 15, UI::INPUT_FORMAT_IPADDRESS))) {
+                if (!Config_Manager::get_handle()->setIP(textInput.get("IP Address", Config_Manager::get_handle()->getIP(), 15, UI::INPUT_FORMAT_IPADDRESS))) {
                     notify.show("Invalid IP address!", 2000, false);
                     break;
                 }
 
             case NETMASK:
 
-                transport->playUIsound(folder_open, folder_open_len);
+                Transport::get_handle()->playUIsound(folder_open, folder_open_len);
                 log_i("Current netmask: %s", WiFi.subnetMask().toString().c_str());
 
-                if (systemConfig->isDHCPEnabled()) {
-                    notify.show("DHCP is enabled!\n\nCurrent netmask:\n" + systemConfig->getNetmask(), 4000, false);
+                if (Config_Manager::get_handle()->isDHCPEnabled()) {
+                    notify.show("DHCP is enabled!\n\nCurrent netmask:\n" + Config_Manager::get_handle()->getNetmask(), 4000, false);
                     break;
                 }
 
-                if (!systemConfig->setNetmask(textInput.get("Netmask:", systemConfig->getNetmask(), 15, UI::INPUT_FORMAT_IPADDRESS))) {
+                if (!Config_Manager::get_handle()->setNetmask(textInput.get("Netmask:", Config_Manager::get_handle()->getNetmask(), 15, UI::INPUT_FORMAT_IPADDRESS))) {
                     notify.show("Invalid netmask!", 2000, false);
                     break;
                 }
@@ -423,15 +423,15 @@ networkMenu()
 
             case GATEWAY:
 
-                transport->playUIsound(folder_open, folder_open_len);
+                Transport::get_handle()->playUIsound(folder_open, folder_open_len);
                 log_i("Current gateway: %s", WiFi.gatewayIP().toString().c_str());
 
-                if (systemConfig->isDHCPEnabled()) {
-                    notify.show("DHCP is enabled!\n\nCurrent gateway:\n" + systemConfig->getGateway(), 4000, false);
+                if (Config_Manager::get_handle()->isDHCPEnabled()) {
+                    notify.show("DHCP is enabled!\n\nCurrent gateway:\n" + Config_Manager::get_handle()->getGateway(), 4000, false);
                     break;
                 }
 
-                if (!systemConfig->setGateway(textInput.get("Gateway:", systemConfig->getGateway(), 15, UI::INPUT_FORMAT_IPADDRESS))) {
+                if (!Config_Manager::get_handle()->setGateway(textInput.get("Gateway:", Config_Manager::get_handle()->getGateway(), 15, UI::INPUT_FORMAT_IPADDRESS))) {
                     notify.show("Invalid gateway!", 2000, false);
                     break;
                 }
@@ -439,22 +439,22 @@ networkMenu()
 
             case DNS:
 
-                transport->playUIsound(folder_open, folder_open_len);
+                Transport::get_handle()->playUIsound(folder_open, folder_open_len);
                 log_i("Current DNS: %s", WiFi.dnsIP().toString().c_str());
 
-                if (systemConfig->isDHCPEnabled()) {
-                    notify.show("DHCP is enabled!\n\nCurrent DNS:\n" + systemConfig->getDNS(), 4000, false);
+                if (Config_Manager::get_handle()->isDHCPEnabled()) {
+                    notify.show("DHCP is enabled!\n\nCurrent DNS:\n" + Config_Manager::get_handle()->getDNS(), 4000, false);
                     break;
                 }
 
-                if (!systemConfig->setDNS(textInput.get("DNS:", systemConfig->getDNS(), 15, UI::INPUT_FORMAT_IPADDRESS))) {
+                if (!Config_Manager::get_handle()->setDNS(textInput.get("DNS:", Config_Manager::get_handle()->getDNS(), 15, UI::INPUT_FORMAT_IPADDRESS))) {
                     notify.show("Invalid DNS!", 2000, false);
                     break;
                 }
                 break;
 
             case NTP_CONFIG:
-                transport->playUIsound(folder_open, folder_open_len);
+                Transport::get_handle()->playUIsound(folder_open, folder_open_len);
                 ntpConfigMenu();
                 break;
 
@@ -486,9 +486,9 @@ ntpConfigMenu()
         switch (selection) {
             case SERVER:
 
-                text = textInput.get("NTP Server:", systemConfig->getNTPServer(), 255, UI::INPUT_FORMAT_SERVADDR);
+                text = textInput.get("NTP Server:", Config_Manager::get_handle()->getNTPServer(), 255, UI::INPUT_FORMAT_SERVADDR);
                 notify.show("Setting NTP server..." + text, 0, false);
-                if (systemConfig->setNTPServer(text)) {
+                if (Config_Manager::get_handle()->setNTPServer(text)) {
                     notify.show("NTP server set!", 2000, false);
                 } else {
                     notify.show("Invalid server!", 2000, false);
@@ -497,8 +497,8 @@ ntpConfigMenu()
 
             case INTERVAL:
 
-                text = textInput.get("Interval (1-1440 min):", std::to_string(systemConfig->getNTPInterval()), 4, UI::INPUT_FORMAT_NUMERIC);
-                if (systemConfig->setNTPInterval(atoi(text.c_str()))) {
+                text = textInput.get("Interval (1-1440 min):", std::to_string(Config_Manager::get_handle()->getNTPInterval()), 4, UI::INPUT_FORMAT_NUMERIC);
+                if (Config_Manager::get_handle()->setNTPInterval(atoi(text.c_str()))) {
                     notify.show("NTP interval set!", 2000, false);
                 } else {
                     notify.show("Invalid interval!\nMust be between\n1-1440 minutes!", 2000, false);
@@ -507,9 +507,9 @@ ntpConfigMenu()
 
             case TIMEZONE:
 
-                timezoneSelection = timezoneMenu.get(tzData);
+                timezoneSelection = timezoneMenu.get(&tzData);
                 if (timezoneSelection != UI::UI_EXIT) {
-                    systemConfig->setTimezone(tzData.get(timezoneSelection, 1)); /* Row = timezoneSelection, Column = 1 */
+                    Config_Manager::get_handle()->setTimezone(tzData.get(timezoneSelection, 1)); /* Row = timezoneSelection, Column = 1 */
                     notify.show("Timezone set!", 2000, false);
                 }
                 break;
@@ -521,7 +521,7 @@ ntpConfigMenu()
                     break;
                 }
                 /* Update the system time */
-                systemConfig->updateNTP();
+                Config_Manager::get_handle()->updateNTP();
                 notify.show("Started update!", 2000, false);
                 break;
 
@@ -564,7 +564,7 @@ playlistEditor_mainMenu()
         switch (selection) {
 
             case LOAD:
-                if (!sdfs->isReady()) {
+                if (!Card_Manager::get_handle()->isReady()) {
                     _playlistEngine->eject();
                     notify.show("SD card error!", 2000, false);
                     break;
@@ -574,7 +574,7 @@ playlistEditor_mainMenu()
                 if (mediadata.loaded) {
                     /* If the playlist is loaded in the main engine, stop the transport */
                     if (playlistEngine->getCurrentTrack() == mediadata) {
-                        transport->stop();
+                        Transport::get_handle()->stop();
                         playlistEngine->eject();
                     }
                     if (_playlistEngine->load(mediadata)) {
@@ -587,7 +587,7 @@ playlistEditor_mainMenu()
 
             case EDIT:
 
-                if (!sdfs->isReady()) {
+                if (!Card_Manager::get_handle()->isReady()) {
                     _playlistEngine->eject();
                     notify.show("SD card error!", 2000, false);
                     break;
@@ -613,13 +613,13 @@ playlistEditor_mainMenu()
                     filename += ".m3u";
                 }
 
-                if (!sdfs->isReady()) {
+                if (!Card_Manager::get_handle()->isReady()) {
                     notify.show("SD card error!", 2000, false);
                     break;
                 }
 
                 /* Create the playlist */
-                if (sdfs->isReady() && !sdfs->exists(path.c_str())) {
+                if (Card_Manager::get_handle()->isReady() && !Card_Manager::get_handle()->exists(path.c_str())) {
                     /* Create the file */
                     FsFile dir;
                     FsFile file;
@@ -637,7 +637,7 @@ playlistEditor_mainMenu()
 
                 while (true) {
 
-                    if (!sdfs->isReady()) {
+                    if (!Card_Manager::get_handle()->isReady()) {
                         _playlistEngine->eject();
                         notify.show("SD card error!", 2000, false);
                         break;
@@ -652,7 +652,7 @@ playlistEditor_mainMenu()
                         if (playlistEngine->isLoaded() && mediadata == *playlistEngine->getLoadedMedia()) {
                             playlistEngine->eject();
                         }
-                        if (sdfs->remove((std::string(PLAYLIST_DIR) + "/" + mediadata.filename).c_str())) {
+                        if (Card_Manager::get_handle()->remove((std::string(PLAYLIST_DIR) + "/" + mediadata.filename).c_str())) {
                             notify.show("Playlist deleted!", 1000, false);
                         } else {
                             notify.show("Error!", 1000, false);
@@ -671,7 +671,7 @@ playlistEditor_mainMenu()
                 break;
         }
     }
-    if (!sdfs->isReady()) {
+    if (!Card_Manager::get_handle()->isReady()) {
         _playlistEngine->eject();
         notify.show("SD card error!", 2000, false);
     }
@@ -692,13 +692,13 @@ playlistEditor_trackMenu(PlaylistEngine* _playlistEngine)
 
     fileBrowser = new UI::FileBrowser();
 
-    while (sdfs->isReady()) {
+    while (Card_Manager::get_handle()->isReady()) {
         selection = (items) playlistEditor.get(menu, SIZE);
 
         switch (selection) {
             case ADDTRACK:
 
-                if (!sdfs->isReady()) {
+                if (!Card_Manager::get_handle()->isReady()) {
                     _playlistEngine->eject();
                     notify.show("SD card error!", 2000, false);
                     break;
@@ -716,13 +716,13 @@ playlistEditor_trackMenu(PlaylistEngine* _playlistEngine)
 
             case REMOVETRACK:
 
-                if (!sdfs->isReady()) {
+                if (!Card_Manager::get_handle()->isReady()) {
                     _playlistEngine->eject();
                     notify.show("SD card error!", 2000, false);
                     break;
                 }
 
-                while (sdfs->isReady()) {
+                while (Card_Manager::get_handle()->isReady()) {
                     if (_playlistEngine && _playlistEngine->size() > 0) {
                         trackSelection = _playlistEngine->view();
                         if (trackSelection != UI::UI_EXIT) {
@@ -747,7 +747,7 @@ playlistEditor_trackMenu(PlaylistEngine* _playlistEngine)
                 break;
         }
     }
-    if (!sdfs->isReady()) {
+    if (!Card_Manager::get_handle()->isReady()) {
         _playlistEngine->eject();
         notify.show("SD card error!", 2000, false);
     }
@@ -761,29 +761,29 @@ audioMenu()
 
     UI::ListSelection audioMenu;
     UI::ValueSelector selector_bass = UI::ValueSelector("Bass",
-                                                std::bind(&Transport::EqualizerController::getBass, transport->eq),
-                                                std::bind(&Transport::EqualizerController::bassUp, transport->eq),
-                                                std::bind(&Transport::EqualizerController::bassDown, transport->eq),
-                                                transport->eq->getMinBass(),
-                                                transport->eq->getMaxBass());
+                                                std::bind(&Transport::EqualizerController::getBass, Transport::get_handle()->eq),
+                                                std::bind(&Transport::EqualizerController::bassUp, Transport::get_handle()->eq),
+                                                std::bind(&Transport::EqualizerController::bassDown, Transport::get_handle()->eq),
+                                                Transport::get_handle()->eq->getMinBass(),
+                                                Transport::get_handle()->eq->getMaxBass());
     UI::ValueSelector selector_mid = UI::ValueSelector("Mid",
-                                               std::bind(&Transport::EqualizerController::getMid, transport->eq),
-                                               std::bind(&Transport::EqualizerController::midUp, transport->eq),
-                                               std::bind(&Transport::EqualizerController::midDown, transport->eq),
-                                               transport->eq->getMinMid(),
-                                               transport->eq->getMaxMid());
+                                               std::bind(&Transport::EqualizerController::getMid, Transport::get_handle()->eq),
+                                               std::bind(&Transport::EqualizerController::midUp, Transport::get_handle()->eq),
+                                               std::bind(&Transport::EqualizerController::midDown, Transport::get_handle()->eq),
+                                               Transport::get_handle()->eq->getMinMid(),
+                                               Transport::get_handle()->eq->getMaxMid());
     UI::ValueSelector selector_treble = UI::ValueSelector("Treble",
-                                                  std::bind(&Transport::EqualizerController::getTreble, transport->eq),
-                                                  std::bind(&Transport::EqualizerController::trebleUp, transport->eq),
-                                                  std::bind(&Transport::EqualizerController::trebleDown, transport->eq),
-                                                  transport->eq->getMinTreble(),
-                                                  transport->eq->getMaxTreble());
+                                                  std::bind(&Transport::EqualizerController::getTreble, Transport::get_handle()->eq),
+                                                  std::bind(&Transport::EqualizerController::trebleUp, Transport::get_handle()->eq),
+                                                  std::bind(&Transport::EqualizerController::trebleDown, Transport::get_handle()->eq),
+                                                  Transport::get_handle()->eq->getMinTreble(),
+                                                  Transport::get_handle()->eq->getMaxTreble());
     UI::ValueSelector selector_sysvol = UI::ValueSelector("UI Volume",
-                                                  std::bind(&Transport::getSystemVolume, transport),
-                                                  std::bind(&Transport::systemVolumeUp, transport),
-                                                  std::bind(&Transport::systemVolumeDown, transport),
-                                                  transport->getMinSystemVolume(),
-                                                  transport->getMaxSystemVolume());
+                                                  std::bind(&Transport::getSystemVolume, Transport::get_handle()),
+                                                  std::bind(&Transport::systemVolumeUp, Transport::get_handle()),
+                                                  std::bind(&Transport::systemVolumeDown, Transport::get_handle()),
+                                                  Transport::get_handle()->getMinSystemVolume(),
+                                                  Transport::get_handle()->getMaxSystemVolume());
 
     UI::SystemMessage notify;
     items selection;
@@ -819,8 +819,8 @@ audioMenu()
 void
 ssidScanner()
 {
-    if (playlistEngine->isEnabled() && transport->getStatus() == TRANSPORT_PLAYING && transport->getLoadedMedia().source == REMOTE_FILE) {
-        transport->stop();
+    if (playlistEngine->isEnabled() && Transport::get_handle()->getStatus() == TRANSPORT_PLAYING && Transport::get_handle()->getLoadedMedia().source == REMOTE_FILE) {
+        Transport::get_handle()->stop();
         playlistEngine->stop();
     }
 
@@ -828,8 +828,8 @@ ssidScanner()
     Timer SSIDscanTimeout;
     bool reEnableWiFi = false;
 
-    if (systemConfig->isWifiEnabled()) {
-        systemConfig->disableWifi();
+    if (Config_Manager::get_handle()->isWifiEnabled()) {
+        Config_Manager::get_handle()->disableWifi();
         reEnableWiFi = true;
     }
 
@@ -866,21 +866,21 @@ ssidScanner()
             notify.show("No networks found!", 2000, false);
             log_e("No networks found after running filters!");
             if (reEnableWiFi)
-                systemConfig->enableWifi();
+                Config_Manager::get_handle()->enableWifi();
             return;
         }
         UI::ListSelection menu;
         uint16_t selection = menu.get(networkList);
 
         if (selection != UI::UI_EXIT) {
-            systemConfig->setWifiSSID(networkList[selection]);
+            Config_Manager::get_handle()->setWifiSSID(networkList[selection]);
             notify.show("SSID selected:\n\n" + networkList[selection], 2000, false);
             log_i("Selected SSID: %s", networkList[selection].c_str());
         }
 
         WiFi.scanDelete();
         if (reEnableWiFi)
-            systemConfig->enableWifi();
+            Config_Manager::get_handle()->enableWifi();
     }
 }
 
@@ -888,11 +888,11 @@ void
 usbMenu()
 {
     UI::SystemMessage notify;
-    if (!sdfs->isReady()) {
+    if (!Card_Manager::get_handle()->isReady()) {
         notify.show("SD card error!", 2000, false);
         return;
     }
-    transport->eject();
+    Transport::get_handle()->eject();
     playlistEngine->eject();
 
     USBMSC usb_msc;
@@ -903,16 +903,16 @@ usbMenu()
     usb_msc.onRead(onRead);
     usb_msc.onWrite(onWrite);
     usb_msc.mediaPresent(true);
-    usb_msc.begin(sdfs->card()->sectorCount(), 512);
+    usb_msc.begin(Card_Manager::get_handle()->card()->sectorCount(), 512);
     USB.onEvent(usbEventCallback);
     USB.manufacturerName("BMA");
     USB.productName("Media Player");
     USB.serialNumber("1.0");
     USB.begin();
 
-    while (sdfs->isReady()) {
+    while (Card_Manager::get_handle()->isReady()) {
         notify.show("USB file transfer\nenabled. Press\nEXIT to end", 0, true);
-        if (buttons->getButtonEvent(BUTTON_EXIT, SHORTPRESS)) {
+        if (Buttons::get_handle()->getButtonEvent(BUTTON_EXIT, SHORTPRESS)) {
             notify.show("Unmounting SD card\n and restarting...", 2000, false);
             usb_msc.end();
             ESP.restart();
@@ -941,20 +941,20 @@ bluetoothMenu()
 
         switch (selection) {
             case ENABLE:
-                if (bluetooth->getMode() == POWER_ON) {
+                if (Bluetooth::get_handle()->getMode() == POWER_ON) {
                     notify.show("Bluetooth already\nenabled!", 2000, false);
                     break;
                 }
-                bluetooth->powerOn();
+                Bluetooth::get_handle()->powerOn();
                 notify.show("Bluetooth enabled!", 2000, false);
                 break;
 
             case DISABLE:
-                if (bluetooth->getMode() == POWER_OFF) {
+                if (Bluetooth::get_handle()->getMode() == POWER_OFF) {
                     notify.show("Bluetooth already\ndisabled!", 2000, false);
                     break;
                 }
-                bluetooth->powerOff();
+                Bluetooth::get_handle()->powerOff();
                 notify.show("Bluetooth disabled!", 2000, false);
                 break;
 
@@ -981,30 +981,30 @@ screensaverMenu()
 
         switch (selection) {
             case ENABLE:
-                if (systemConfig->isScreenSaverEnabled()) {
+                if (Config_Manager::get_handle()->isScreenSaverEnabled()) {
                     notify.show("Screensaver already\nenabled!", 2000, false);
                     break;
                 }
-                systemConfig->enableScreenSaver();
+                Config_Manager::get_handle()->enableScreenSaver();
                 notify.show("Screensaver enabled!", 2000, false);
                 break;
 
             case DISABLE:
-                if (!systemConfig->isScreenSaverEnabled()) {
+                if (!Config_Manager::get_handle()->isScreenSaverEnabled()) {
                     notify.show("Screensaver already\ndisabled!", 2000, false);
                     break;
                 }
-                systemConfig->disableScreenSaver();
+                Config_Manager::get_handle()->disableScreenSaver();
                 notify.show("Screensaver disabled!", 2000, false);
                 break;
 
             case TIMEOUT:
-                timeout = atoi(text.get("Timeout (1s-3600s):", std::to_string(systemConfig->getScreenSaverTimeout()), 4, UI::INPUT_FORMAT_NUMERIC).c_str());
+                timeout = atoi(text.get("Timeout (1s-3600s):", std::to_string(Config_Manager::get_handle()->getScreenSaverTimeout()), 4, UI::INPUT_FORMAT_NUMERIC).c_str());
                 if (timeout < 1 || timeout > 3600) {
                     notify.show("Invalid timeout!\nValid values are:\n1-3600", 2000, false);
                     break;
                 }
-                systemConfig->setScreenSaverTimeout(timeout);
+                Config_Manager::get_handle()->setScreenSaverTimeout(timeout);
                 notify.show("Timeout set to\n" + std::to_string(timeout) + "seconds.", 2000, false);
                 break;
 

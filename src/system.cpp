@@ -23,13 +23,15 @@
 
 #include "system.h"
 
-SystemConfig::SystemConfig()
+Config_Manager* Config_Manager::_handle = nullptr;
+
+Config_Manager::Config_Manager()
 {   
     preferences = new Preferences();
 }
 
 void
-SystemConfig::begin()
+Config_Manager::begin()
 {
     preferences->begin("config", false);
 
@@ -129,12 +131,11 @@ SystemConfig::begin()
     }
 
     /* Set the volume stored in preferences */
-    extern Transport* transport;
-    transport->setVolume(this->volume);
-    transport->setSystemVolume(this->system_volume);
-    transport->eq->setBass(this->eq_bass);
-    transport->eq->setMid(this->eq_mid);
-    transport->eq->setTreble(this->eq_treble);
+    Transport::get_handle()->setVolume(this->volume);
+    Transport::get_handle()->setSystemVolume(this->system_volume);
+    Transport::get_handle()->eq->setBass(this->eq_bass);
+    Transport::get_handle()->eq->setMid(this->eq_mid);
+    Transport::get_handle()->eq->setTreble(this->eq_treble);
 
     /* Start the screensaver */
     if (this->screensaver_enabled) {
@@ -145,7 +146,7 @@ SystemConfig::begin()
 }
 
 void
-SystemConfig::enableWifi()
+Config_Manager::enableWifi()
 {
     WiFi.disconnect();
 
@@ -179,7 +180,7 @@ SystemConfig::enableWifi()
 }
 
 void
-SystemConfig::disableWifi()
+Config_Manager::disableWifi()
 {
     preferences->putBool("wifi_enabled", false);
     this->wifi_enabled = false;
@@ -189,35 +190,35 @@ SystemConfig::disableWifi()
 }
 
 void
-SystemConfig::setWifiSSID(std::string ssid)
+Config_Manager::setWifiSSID(std::string ssid)
 {
     preferences->putString("ssid", ssid.c_str());
     this->ssid = ssid;
 }
 
 void
-SystemConfig::setWifiPassword(std::string password)
+Config_Manager::setWifiPassword(std::string password)
 {
     preferences->putString("password", password.c_str());
     this->password = password;
 }
 
 void
-SystemConfig::enableDHCP()
+Config_Manager::enableDHCP()
 {
     preferences->putBool("dhcp", true);
     this->dhcp = true;
 }
 
 void
-SystemConfig::disableDHCP()
+Config_Manager::disableDHCP()
 {
     preferences->putBool("dhcp", false);
     this->dhcp = false;
 }
 
 bool
-SystemConfig::setIP(std::string ip)
+Config_Manager::setIP(std::string ip)
 {
     if (!validateIPString(ip)) {
         return false;
@@ -229,7 +230,7 @@ SystemConfig::setIP(std::string ip)
 }
 
 bool
-SystemConfig::setNetmask(std::string netmask)
+Config_Manager::setNetmask(std::string netmask)
 {
     if (!validateIPString(ip)) {
         return false;
@@ -241,7 +242,7 @@ SystemConfig::setNetmask(std::string netmask)
 }
 
 bool
-SystemConfig::setGateway(std::string gateway)
+Config_Manager::setGateway(std::string gateway)
 {
     if (!validateIPString(ip)) {
         return false;
@@ -253,7 +254,7 @@ SystemConfig::setGateway(std::string gateway)
 }
 
 bool
-SystemConfig::setDNS(std::string dns)
+Config_Manager::setDNS(std::string dns)
 {
     if (!validateIPString(ip)) {
         return false;
@@ -265,7 +266,7 @@ SystemConfig::setDNS(std::string dns)
 }
 
 bool
-SystemConfig::setNTPServer(std::string ntp_server)
+Config_Manager::setNTPServer(std::string ntp_server)
 {
     /* Check the ntp_server string to see if it looks like a server address and makes sense */
     if (ntp_server.length() < 4) {
@@ -290,7 +291,7 @@ SystemConfig::setNTPServer(std::string ntp_server)
 }
 
 bool
-SystemConfig::setNTPInterval(uint32_t ntp_interval)
+Config_Manager::setNTPInterval(uint32_t ntp_interval)
 {
     /* NTP interval must be between 1 and 1440 minutes */
     if (ntp_interval < 1 || ntp_interval > 1440) {
@@ -305,13 +306,13 @@ SystemConfig::setNTPInterval(uint32_t ntp_interval)
 }
 
 void
-SystemConfig::updateNTP()
+Config_Manager::updateNTP()
 {
     sntp_sync_time(nullptr);
 }
 
 void
-SystemConfig::setTimezone(std::string timezone)
+Config_Manager::setTimezone(std::string timezone)
 {
     preferences->putString("timezone", timezone.c_str());
     this->timezone = timezone;
@@ -320,7 +321,7 @@ SystemConfig::setTimezone(std::string timezone)
 }
 
 bool
-SystemConfig::setTime(std::string time)
+Config_Manager::setTime(std::string time)
 {
     /* Check the time string */
     if (time.length() != 8) {
@@ -374,7 +375,7 @@ SystemConfig::setTime(std::string time)
 }
 
 bool
-SystemConfig::setDate(std::string date)
+Config_Manager::setDate(std::string date)
 {
     /* Check the date string */
     if (date.length() != 10) {
@@ -443,7 +444,7 @@ SystemConfig::setDate(std::string date)
 }
 
 void
-SystemConfig::setHostname(std::string hostname)
+Config_Manager::setHostname(std::string hostname)
 {
     preferences->putString("hostname", hostname.c_str());
     this->hostname = hostname;
@@ -451,79 +452,79 @@ SystemConfig::setHostname(std::string hostname)
 }
 
 bool
-SystemConfig::isWifiEnabled()
+Config_Manager::isWifiEnabled()
 {
     return this->wifi_enabled;
 }
 
 std::string
-SystemConfig::getWifiSSID()
+Config_Manager::getWifiSSID()
 {
     return this->ssid;
 }
 
 std::string
-SystemConfig::getWifiPassword()
+Config_Manager::getWifiPassword()
 {
     return this->password;
 }
 
 bool
-SystemConfig::isDHCPEnabled()
+Config_Manager::isDHCPEnabled()
 {
     return this->dhcp;
 }
 
 std::string
-SystemConfig::getIP()
+Config_Manager::getIP()
 {
     return this->ip;
 }
 
 std::string
-SystemConfig::getNetmask()
+Config_Manager::getNetmask()
 {
     return this->netmask;
 }
 
 std::string
-SystemConfig::getGateway()
+Config_Manager::getGateway()
 {
     return this->gateway;
 }
 
 std::string
-SystemConfig::getDNS()
+Config_Manager::getDNS()
 {
     return this->dns;
 }
 
 std::string
-SystemConfig::getNTPServer()
+Config_Manager::getNTPServer()
 {
     return this->ntp_server;
 }
 
 uint32_t
-SystemConfig::getNTPInterval()
+Config_Manager::getNTPInterval()
 {
     return this->ntp_interval;
 }
 
 std::string
-SystemConfig::getTimezone()
+Config_Manager::getTimezone()
 {
     return this->timezone;
 }
 
 std::string
-SystemConfig::getHostname()
+Config_Manager::getHostname()
 {
     return this->hostname;
 }
 
 std::string
-SystemConfig::getCurrentDateTime(const char* format)
+Config_Manager::getCurrentDateTime(const char* format)
 {
     time_t now;
     struct tm timeinfo;
@@ -540,27 +541,27 @@ SystemConfig::getCurrentDateTime(const char* format)
 }
 
 bool
-SystemConfig::isAlarmEnabled()
+Config_Manager::isAlarmEnabled()
 {
     return this->alarm_enabled;
 }
 
 void
-SystemConfig::enableAlarm()
+Config_Manager::enableAlarm()
 {
     preferences->putBool("alarm_enabled", true);
     this->alarm_enabled = true;
 }
 
 void
-SystemConfig::disableAlarm()
+Config_Manager::disableAlarm()
 {
     preferences->putBool("alarm_enabled", false);
     this->alarm_enabled = false;
 }
 
 bool
-SystemConfig::setAlarmTime(std::string time)
+Config_Manager::setAlarmTime(std::string time)
 {
     struct tm timeinfo;
     timeval tv;
@@ -611,7 +612,7 @@ SystemConfig::setAlarmTime(std::string time)
 }
 
 std::string
-SystemConfig::getAlarmTime()
+Config_Manager::getAlarmTime()
 {
     char time[9];
     sprintf(time, "%02d:%02d:%02d", this->alarm_dateTime.tm_hour, this->alarm_dateTime.tm_min, this->alarm_dateTime.tm_sec);
@@ -619,13 +620,13 @@ SystemConfig::getAlarmTime()
 }
 
 void
-SystemConfig::getAlarmTime(struct tm* time)
+Config_Manager::getAlarmTime(struct tm* time)
 {
     *time = this->alarm_dateTime;
 }
 
 bool
-SystemConfig::setAlarmTime(struct tm time)
+Config_Manager::setAlarmTime(struct tm time)
 {
     timeval tv;
     gettimeofday(&tv, NULL);
@@ -654,13 +655,13 @@ SystemConfig::setAlarmTime(struct tm time)
 }
 
 MediaData
-SystemConfig::getAlarmMedia()
+Config_Manager::getAlarmMedia()
 {
     return this->alarm_media;
 }
 
 void
-SystemConfig::saveAlarmMedia(MediaData mediadata)
+Config_Manager::saveAlarmMedia(MediaData mediadata)
 {
     preferences->putString("alarm_media_f", mediadata.filename.c_str());
     preferences->putString("alarm_media_p", mediadata.path.c_str());
@@ -671,7 +672,7 @@ SystemConfig::saveAlarmMedia(MediaData mediadata)
 }
 
 bool
-SystemConfig::validateIPString(std::string ip)
+Config_Manager::validateIPString(std::string ip)
 {
     IPAddress address;
 
@@ -695,7 +696,7 @@ SystemConfig::validateIPString(std::string ip)
 }
 
 void
-SystemConfig::resetPreferences()
+Config_Manager::resetPreferences()
 {
     preferences->clear();
     ESP.restart();
@@ -704,44 +705,43 @@ SystemConfig::resetPreferences()
 void
 serviceLoop()
 {
-    if (systemConfig) {
+    if (Config_Manager::get_handle() != nullptr) {
 
         /* Check for Bluetooth data */
-        if (bluetooth) {
-            bluetooth->loop();
+        if (Bluetooth::get_handle() != nullptr) {
+            Bluetooth::get_handle()->loop();
         }
-
         /* Check for sd card insertion or removal */
-        if (sdfs) {
-            sdfs->check_card_detect();
+        if (Card_Manager::get_handle() != nullptr) {
+            Card_Manager::get_handle()->check_card_detect();
         }
 
         /* Maintain audio transport */
-        if (playlistEngine) {
+        if (playlistEngine != nullptr) {
             playlistEngine->loop();
         }
-        if (transport) {
-            transport->loop();
+        if (Transport::get_handle() != nullptr) {
+            Transport::get_handle()->loop();
         }
 
         /* Screen saver */
-        if (screensaver) {
+        if (screensaver != nullptr) {
             screensaver->loop();
         }
 
         /* Check alarms */
-        if (systemConfig->isAlarmEnabled()) {
+        if (Config_Manager::get_handle()->isAlarmEnabled()) {
             tm currentTime;
             tm alarmTime;
-            systemConfig->getAlarmTime(&alarmTime);
+            Config_Manager::get_handle()->getAlarmTime(&alarmTime);
             timeval tv;
             gettimeofday(&tv, NULL);
             localtime_r(&tv.tv_sec, &currentTime);
 
             if (currentTime.tm_hour == alarmTime.tm_hour && currentTime.tm_min == alarmTime.tm_min && currentTime.tm_sec == alarmTime.tm_sec &&
                 currentTime.tm_mday == alarmTime.tm_mday) {
-                if (transport->load(systemConfig->getAlarmMedia())) {
-                    transport->play();
+                if (Transport::get_handle()->load(Config_Manager::get_handle()->getAlarmMedia())) {
+                    Transport::get_handle()->play();
                 }
             }
 
@@ -757,7 +757,7 @@ serviceLoop()
                     alarmTime.tm_mon = currentTime.tm_mon;
                     alarmTime.tm_year = currentTime.tm_year;
                 }
-                systemConfig->setAlarmTime(alarmTime);
+                Config_Manager::get_handle()->setAlarmTime(alarmTime);
             }
         }
     }

@@ -32,18 +32,8 @@
 #include <esp_sntp.h>
 #include <esp_system.h>
 #include <esp_task_wdt.h>
-#include <system.h>
-#include <transport.h>
 
-class SystemConfig;
-class Transport;
-class CardManager;
-class PlaylistEngine;
-
-extern CardManager* sdfs;
-extern Transport* transport;
-extern SystemConfig* systemConfig;
-extern PlaylistEngine* playlistEngine;
+class Card_Manager;
 
 /* WiFi events */
 void onWifiDisconnected(WiFiEvent_t event, WiFiEventInfo_t info);
@@ -52,67 +42,14 @@ void onWifiGotIP(WiFiEvent_t event, WiFiEventInfo_t info);
 void onWifiLostIP(WiFiEvent_t event, WiFiEventInfo_t info);
 void onWifiFailed(WiFiEvent_t event, WiFiEventInfo_t info);
 
-/* USB MSC */
-static int32_t
-onWrite(uint32_t lba, uint32_t offset, uint8_t* buffer, uint32_t bufsize)
-{
-    if (!sdfs->isReady()) {
-        return -1;
-    }
-    bool rc;
-#if SD_FAT_VERSION >= 20000
-    rc = sdfs->card()->writeSectors(lba + offset, buffer, bufsize / 512);
-#else
-    rc = sdfs->card()->writeBlocks(lba + offset, buffer, bufsize / 512);
-#endif
-    return rc ? bufsize : -1;
-};
+/* USB MSC events */
+int32_t onWrite(uint32_t lba, uint32_t offset, uint8_t* buffer, uint32_t bufsize);
+int32_t onRead(uint32_t lba, uint32_t offset, void* buffer, uint32_t bufsize);
+bool onStartStop(uint8_t power_condition, bool start, bool load_eject);
+void usbEventCallback(void* arg, esp_event_base_t event_base, int32_t event_id, void* event_data);
 
-static int32_t
-onRead(uint32_t lba, uint32_t offset, void* buffer, uint32_t bufsize)
-{
-    if (!sdfs->isReady()) {
-        return -1;
-    }
-    bool rc;
-#if SD_FAT_VERSION >= 20000
-    rc = sdfs->card()->readSectors(lba + offset, (uint8_t*) buffer, bufsize / 512);
-#else
-    rc = sdfs->card()->readBlocks(lba + offset, (uint8_t*) buffer, bufsize / 512);
-#endif
-    return rc ? bufsize : -1;
-};
-
-static bool
-onStartStop(uint8_t power_condition, bool start, bool load_eject)
-{
-    log_i("MSC START/STOP: power: %u, start: %u, eject: %u\n", power_condition, start, load_eject);
-    return true;
-};
-
-static void
-usbEventCallback(void* arg, esp_event_base_t event_base, int32_t event_id, void* event_data)
-{
-    if (event_base == ARDUINO_USB_EVENTS) {
-        arduino_usb_event_data_t* data = (arduino_usb_event_data_t*) event_data;
-        switch (event_id) {
-            case ARDUINO_USB_STARTED_EVENT:
-                Serial.println("USB PLUGGED");
-                break;
-            case ARDUINO_USB_STOPPED_EVENT:
-                Serial.println("USB UNPLUGGED");
-                break;
-            case ARDUINO_USB_SUSPEND_EVENT:
-                Serial.printf("USB SUSPENDED: remote_wakeup_en: %u\n", data->suspend.remote_wakeup_en);
-                break;
-            case ARDUINO_USB_RESUME_EVENT:
-                Serial.println("USB RESUMED");
-                break;
-
-            default:
-                break;
-        }
-    }
-}
+/* File Explorer callbacks */
+int db_callback_get_files(void* data, int argc, char** argv, char** azColName);
+int db_callback_get_checksum(void* data, int argc, char** argv, char** azColName);
 
 #endif

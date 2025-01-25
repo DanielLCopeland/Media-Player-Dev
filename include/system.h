@@ -24,10 +24,6 @@
 #ifndef system_h
 #define system_h
 
-#ifndef PLAYLIST_DIR
-#define PLAYLIST_DIR "/playlists"
-#endif
-
 #include <Preferences.h>
 #include <WiFi.h>
 #include <bluetooth.h>
@@ -37,6 +33,7 @@
 #include <screensaver.h>
 #include <time.h>
 #include <transport.h>
+#include <data.h>
 
 enum file_type
 {
@@ -56,18 +53,14 @@ enum file_Source
     REMOTE_FILE
 };
 
-class CardManager;
+class Card_Manager;
 class Transport;
-class SystemConfig;
+class Config_Manager;
 class PlaylistEngine;
 class Bluetooth;
 class Screensaver;
 
-extern CardManager* sdfs;
-extern Transport* transport;
-extern SystemConfig* systemConfig;
 extern PlaylistEngine* playlistEngine;
-extern Bluetooth* bluetooth;
 extern Screensaver* screensaver;
 
 /* Used to pass file/stream info around various parts of the system */
@@ -232,6 +225,17 @@ class TableData
     }
     const char* get(size_t row, size_t column) { return table[(row * columns) + column]; }
     uint16_t size() { return length; }
+    void get_list(std::vector<std::string>* data, uint32_t index, uint32_t count, uint8_t sort_order, uint8_t sort_type)
+    {
+        /* This function is used to get a list of files from the database */
+        data->clear();
+        for (uint32_t i = index; i < index + count; i++) {
+            if (i >= length) {
+                break;
+            }
+            data->push_back(get(i, 0));
+        }
+    }
 
   private:
     const char* const* table;
@@ -239,10 +243,23 @@ class TableData
     size_t length;
 };
 
-class SystemConfig
+class Config_Manager
 {
+    /** @brief This class is a singleton that manages the system configuration. */
+  private:
+    Config_Manager();
+    ~Config_Manager();
+    static Config_Manager* _handle;
+
   public:
-    SystemConfig();
+    Config_Manager(Config_Manager const&) = delete;
+    static Config_Manager* get_handle()
+    {
+        if (!_handle) {
+            _handle = new Config_Manager();
+        }
+        return _handle;
+    }
     void begin();
     void enableWifi();
     void disableWifi();

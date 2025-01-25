@@ -38,17 +38,17 @@ UI::StatusScreen::StatusScreen()
     marquee_mediainfo = new Marquee();
     marquee_mediainfo->setSpeed(200);
     marquee_mediainfo->setSwitchInterval(1000 * 10);
-    marquee_mediainfo->addSource(std::bind(&Transport::getLoadedFileName, transport), "File:");
-    marquee_mediainfo->addSource(std::bind(&Transport::getLoadedURL, transport), "URL:");
-    marquee_mediainfo->addSource(std::bind(&Transport::getLoadedArtist, transport), "Artist:");
-    marquee_mediainfo->addSource(std::bind(&Transport::getLoadedAlbum, transport), "Album:");
-    marquee_mediainfo->addSource(std::bind(&Transport::getLoadedTitle, transport), "Title:");
-    marquee_mediainfo->addSource(std::bind(&Transport::getLoadedGenre, transport), "Genre:");
+    marquee_mediainfo->addSource(std::bind(&Transport::getLoadedFileName, Transport::get_handle()), "File:");
+    marquee_mediainfo->addSource(std::bind(&Transport::getLoadedURL, Transport::get_handle()), "URL:");
+    marquee_mediainfo->addSource(std::bind(&Transport::getLoadedArtist, Transport::get_handle()), "Artist:");
+    marquee_mediainfo->addSource(std::bind(&Transport::getLoadedAlbum, Transport::get_handle()), "Album:");
+    marquee_mediainfo->addSource(std::bind(&Transport::getLoadedTitle, Transport::get_handle()), "Title:");
+    marquee_mediainfo->addSource(std::bind(&Transport::getLoadedGenre, Transport::get_handle()), "Genre:");
 
     marquee_datetime = new Marquee();
     marquee_datetime->setSwitchInterval(1000 * 10);
-    marquee_datetime->addSource(std::bind(&SystemConfig::getCurrentDateTime, systemConfig, "%H:%M:%S %Z"));
-    marquee_datetime->addSource(std::bind(&SystemConfig::getCurrentDateTime, systemConfig, "%a, %b %d, %Y"));
+    marquee_datetime->addSource(std::bind(&Config_Manager::getCurrentDateTime, Config_Manager::get_handle(), "%H:%M:%S %Z"));
+    marquee_datetime->addSource(std::bind(&Config_Manager::getCurrentDateTime, Config_Manager::get_handle(), "%a, %b %d, %Y"));
 
     marquee_connectStatus = new Marquee("Connecting");
     marquee_connectStatus->setSwitchInterval(150);
@@ -73,17 +73,17 @@ UI::StatusScreen::draw()
     display->setTextColor(WHITE, BLACK);
 
     // Draw the sprite for the TRANSPORT_PLAYING status
-    if (transport->getStatus() == TRANSPORT_PLAYING) {
+    if (Transport::get_handle()->getStatus() == TRANSPORT_PLAYING) {
         anim_playing->draw(0, 0, 20, 20);
     } else {
         anim_stopped->draw(0, 0, 20, 20);
     }
 
     // Display the filename or info of the currently loaded media
-    if (transport->getStatus() != TRANSPORT_IDLE && transport->getStatus() != TRANSPORT_CONNECTING) {
+    if (Transport::get_handle()->getStatus() != TRANSPORT_IDLE && Transport::get_handle()->getStatus() != TRANSPORT_CONNECTING) {
         marquee_mediainfo->draw(0, 24);
     } 
-    else if (transport->getStatus() == TRANSPORT_CONNECTING) {
+    else if (Transport::get_handle()->getStatus() == TRANSPORT_CONNECTING) {
         marquee_connectStatus->draw(0, 24);
     }
     else {
@@ -92,11 +92,11 @@ UI::StatusScreen::draw()
     }
 
     // Draw the volume level using bitmap_volume_muted for 0, bitmap_volume_low for 1-33, bitmap_volume_mid for 34-66, and bitmap_volume_full for 67-100
-    if (transport->getVolume() < 3)
+    if (Transport::get_handle()->getVolume() < 3)
         display->drawBitmap(120, 0, bitmap_volume_muted, 7, 7, WHITE);
-    else if (transport->getVolume() > 0 && transport->getVolume() <= 33)
+    else if (Transport::get_handle()->getVolume() > 0 && Transport::get_handle()->getVolume() <= 33)
         display->drawBitmap(120, 0, bitmap_volume_low, 7, 7, WHITE);
-    else if (transport->getVolume() > 33 && transport->getVolume() <= 66)
+    else if (Transport::get_handle()->getVolume() > 33 && Transport::get_handle()->getVolume() <= 66)
         display->drawBitmap(120, 0, bitmap_volume_mid, 7, 7, WHITE);
     else
         display->drawBitmap(120, 0, bitmap_volume_full, 7, 7, WHITE);
@@ -104,17 +104,17 @@ UI::StatusScreen::draw()
     // If the playlist is enabled, draw the playlist icon, otherwise draw the note icon
     if (playlistEngine->isEnabled())
         display->drawBitmap(110, 0, bitmap_playlist, 7, 7, WHITE);
-    else if (transport->getLoadedMedia().loaded)
+    else if (Transport::get_handle()->getLoadedMedia().loaded)
         display->drawBitmap(110, 0, bitmap_note, 7, 7, WHITE);
 
     // Draw the network status
     if (WiFi.status() == WL_CONNECTED)
         display->drawBitmap(100, 0, bitmap_wifi_3, 7, 7, WHITE);
-    else if (systemConfig->isWifiEnabled() && WiFi.status() == WL_DISCONNECTED)
+    else if (Config_Manager::get_handle()->isWifiEnabled() && WiFi.status() == WL_DISCONNECTED)
         display->drawBitmap(100, 0, bitmap_wifi_error, 7, 7, WHITE);
 
     // Draw the bluetooth status
-    if (bluetooth->getMode() == POWER_ON)
+    if (Bluetooth::get_handle()->getMode() == POWER_ON)
         display->drawBitmap(90, 0, bitmap_bluetooth, 7, 7, WHITE);
 
     // Draw the spectrum analyzer
@@ -123,7 +123,7 @@ UI::StatusScreen::draw()
     }
 
     // Draw the play time
-    uint32_t playTime = transport->getPlayTime();
+    uint32_t playTime = Transport::get_handle()->getPlayTime();
     uint8_t hours = playTime / 3600;
     uint8_t minutes = (playTime % 3600) / 60;
     uint8_t seconds = playTime % 60;

@@ -65,8 +65,12 @@ enum buttonEvents
 
 class Buttons
 {
-  public:
+  private:
     Buttons();
+    static Buttons* _handle;
+
+  public:
+    Buttons(Buttons const&) = delete;
 
     /* Returns true if button was pressed and released for SHORTPRESS_MS or LONGPRSS_MS.  Uses millis() so it's non-blocking. Keeps checking in a loop
     to see if it's still pressed after a delay for debouncing or filtering of spurious signals. Variable "button" corresponds to the pin number of the
@@ -79,6 +83,14 @@ class Buttons
     /* Allows us to trigger a longpress again on each loop once the longpress triggers the first time, and doesn't stop until the button is released.
     Useful for fast scrolling. Adjust delay time with REPEAT_MS. */
     void repeat(uint8_t button);
+
+    static Buttons* get_handle()
+    {
+        if (!_handle) {
+            _handle = new Buttons();
+        }
+        return _handle;
+    }
 
   private:
     struct button

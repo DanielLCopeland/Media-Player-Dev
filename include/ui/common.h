@@ -29,9 +29,7 @@
 #include <Adafruit_SSD1306.h>
 #include <WiFi.h>
 #include <buttons.h>
-#include <card_manager.h>
 #include <data.h>
-#include <filesystem.h>
 #include <gfx.h>
 #include <playlist_engine.h>
 #include <screensaver.h>
@@ -39,31 +37,31 @@
 #include <timer.h>
 #include <transport.h>
 #include <ui_sounds.h>
+#include <card_manager.h>
 #include <vector>
+#include <functional>
+#include <type_traits>
+#include <typeinfo>
 
-#include <ui/utilities.h>
 #include <ui/constants.h>
 #include <ui/animation.h>
 #include <ui/binary_selector.h>
-#include <ui/filebrowser.h>
 #include <ui/input.h>
 #include <ui/marquee.h>
 #include <ui/list.h>
 #include <ui/notification.h>
+#include <ui/filebrowser.h>
 #include <ui/spectrum_analyzer.h>
 #include <ui/status.h>
 #include <ui/value_indicator.h>
 #include <ui/value_selector.h>
 
 class Adafruit_SSD1306;
-class CardManager;
+class Card_Manager;
 class Transport;
 class Buttons;
 class Screensaver;
 
-extern Buttons* buttons;
-extern CardManager* sdfs;
-extern Transport* transport;
 extern Adafruit_SSD1306* display;
 extern Screensaver* screensaver;
 

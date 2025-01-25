@@ -25,13 +25,11 @@
 #define menu_h
 
 #include <USBMSC.h>
-#include <buttons.h>
-#include <data.h>
 #include <callbacks.h>
+#include <buttons.h>
 #include <esp_sntp.h>
 #include <card_manager.h>
 #include <bluetooth.h>
-#include <filesystem.h>
 #include <system.h>
 #include <time.h>
 #include <timer.h>
@@ -48,21 +46,15 @@
 
 class Transport;
 class Buttons;
-class Filesystem;
-class CardManager;
+class Card_Manager;
 class Bluetooth;
 class PlaylistEngine;
-class SystemConfig;
+class Config_Manager;
 class MediaData;
 class TableData;
 class Timer;
 
-extern CardManager* sdfs;
-extern Bluetooth* bluetooth;
-extern Transport* transport;
-extern Buttons* buttons;
 extern Adafruit_SSD1306* display;
-extern SystemConfig* systemConfig;
 
 void mainMenu();
 void systemMenu();
