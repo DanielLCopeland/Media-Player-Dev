@@ -108,7 +108,6 @@ class File_Explorer
      * @param sort_order Sort order of the files, either SORT_ASCENDING or SORT_DESCENDING
      */
     error_t get_list(std::vector<MediaData>* data, uint32_t index, uint32_t count, uint8_t sort_order, uint8_t sort_type);
-    error_t get_list(std::vector<std::string>* data, uint32_t index, uint32_t count, uint8_t sort_order, uint8_t sort_type);
 
     /**
      * @brief Opens a directory

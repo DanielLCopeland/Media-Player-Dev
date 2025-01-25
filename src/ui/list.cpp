@@ -134,6 +134,19 @@ UI::ListSelection::get(PlaylistEngine* playlist_engine, bool playlist_showindex)
     return _get();
 }
 
+uint16_t
+UI::ListSelection::get(File_Explorer* file_explorer)
+{
+    menu_type = MENU_TYPE_FILE_EXPLORER;
+    numItems = file_explorer->size();
+    selectedIndex = 0;
+    page = 1;
+    cursor = 0;
+    _file_explorer = file_explorer;
+
+    return _get();
+}
+
 std::vector<std::string>
 UI::ListSelection::getDisplayedItems()
 {
@@ -149,10 +162,6 @@ UI::ListSelection::getDisplayedItems()
             case MENU_TYPE_STRING_VECTOR:
                 if (i < numItems)
                     displayedItems.push_back((*listItems_ptr)[i]);
-                break;
-            case MENU_TYPE_DATATABLE:
-                if (i < numItems)
-                    displayedItems.push_back(table->get(i, 0));
                 break;
             case MENU_TYPE_PLAYLIST:
                 if (i < numItems) {
@@ -175,6 +184,22 @@ UI::ListSelection::getDisplayedItems()
             lines = numItems - (page - 1) * MAX_TEXT_LINES;
         }
         _get_list(&displayedItems, (page - 1) * MAX_TEXT_LINES, lines, SORT_ASC, SORT_NAME);
+    }
+
+    if (menu_type == MENU_TYPE_FILE_EXPLORER) {
+        uint8_t lines = MAX_TEXT_LINES;
+
+        if ((page - 1) * MAX_TEXT_LINES + MAX_TEXT_LINES > numItems) {
+            lines = numItems - (page - 1) * MAX_TEXT_LINES;
+        }
+        _file_explorer->get_list(&_mediadata_list, (page - 1) * MAX_TEXT_LINES, lines, SORT_ASC, SORT_NAME);
+        for (uint8_t i = 0; i < _mediadata_list.size(); i++) {
+            if (_mediadata_list[i].source == LOCAL_FILE && _mediadata_list[i].loaded) {
+                displayedItems.push_back(_mediadata_list[i].filename);
+            } else if (_mediadata_list[i].source == REMOTE_FILE && _mediadata_list[i].loaded) {
+                displayedItems.push_back(_mediadata_list[i].url);
+            }
+        }
     }
 
     return displayedItems;

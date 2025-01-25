@@ -30,6 +30,7 @@
 class TableData;
 class PlaylistEngine;
 class File_Explorer;
+class MediaData;
 
 namespace UI {
 enum menuType
@@ -38,6 +39,7 @@ enum menuType
     MENU_TYPE_STRING_VECTOR,
     MENU_TYPE_DATATABLE,
     MENU_TYPE_PLAYLIST,
+    MENU_TYPE_FILE_EXPLORER,
     MENU_TYPE_CUSTOM
 };
 
@@ -58,6 +60,7 @@ class ListSelection
     If playlist_showindex is true, the index of the currently selected track
     will be highlighted in the list. */
     uint16_t get(PlaylistEngine* playlist, bool playlist_showindex = false);
+    uint16_t get(File_Explorer* file_explorer);
 
     template<typename T>
     uint16_t get(T* _object, bool show_index = false, bool show_icons = false)
@@ -70,14 +73,11 @@ class ListSelection
             _get_list = [_object](std::vector<std::string>* data, uint32_t index, uint32_t count, uint8_t sort_order, uint8_t sort_type) {
                 _object->get_list(data, index, count, sort_order, sort_type);
             };
-            _get_list = [_object](std::vector<std::string>* data, uint32_t index, uint32_t count, uint8_t sort_order, uint8_t sort_type) {
-                _object->get_list(data, index, count, sort_order, sort_type);
-            };
-
         return _get();
     }
 
     std::string getSelected() { return selected_item; }
+    std::vector<MediaData> get_mediadata_list() { return _mediadata_list; }
 
   private:
     uint16_t _get();
@@ -86,6 +86,7 @@ class ListSelection
     uint16_t page = 1;
     const char* const* menuItems = nullptr;
     std::vector<std::string>* listItems_ptr = nullptr;
+    std::vector<MediaData> _mediadata_list;
     TableData* table = nullptr;
     PlaylistEngine* _playlist_engine = nullptr;
     bool _playlist_showindex = false;
@@ -98,6 +99,7 @@ class ListSelection
     std::vector<std::string> getDisplayedItems();
     std::string selected_item = "";
     Marquee* marquee = nullptr;
+    File_Explorer* _file_explorer = nullptr;
     uint16_t numPages();
 };
 

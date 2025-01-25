@@ -79,6 +79,7 @@ UI::FileBrowser::get()
 
     if (file_explorer == nullptr) {
         begin();
+        positionHistory.clear();
     }
 
     Transport::get_handle()->playUIsound(folder_open, folder_open_len);
