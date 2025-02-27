@@ -26,8 +26,10 @@
 
 Transport* Transport::_handle = nullptr;
 
-Transport::Transport() : ringBuffer(AUDIO_BUFFER_SIZE)
-{}
+Transport::Transport()
+  : ringBuffer(AUDIO_BUFFER_SIZE)
+{
+}
 
 void
 Transport::begin()
@@ -103,9 +105,9 @@ Transport::begin()
     fft.reset();
 
     metadata_output.setCallback(Transport::metadataCallback);
-    //metadata_output.begin();
+    // metadata_output.begin();
 
-    //url_stream.setMetadataCallback(Transport::metadataCallback);
+    // url_stream.setMetadataCallback(Transport::metadataCallback);
     url_stream.setWaitForData(false);
     status = TRANSPORT_IDLE;
 
@@ -119,7 +121,6 @@ Transport::begin()
     log_i("Starting audio task on core 0");
     audio_task.create("audio_writer", 1024 * 8, 1, 0);
     audio_task.begin(audio_writer(this));
-
 }
 
 std::function<void()>
@@ -132,7 +133,7 @@ Transport::audio_writer(Transport* _transport)
         const uint16_t chunksize = AUDIO_BUFFER_READ_CHUNK;
         while (true) {
             if (_transport->ringBuffer.available()) {
-                
+
                 uint16_t bytes_available = _transport->ringBuffer.available();
                 if (bytes_available > chunksize) {
                     bytes_available = chunksize;
@@ -155,7 +156,6 @@ Transport::audio_writer(Transport* _transport)
         }
     };
 }
-
 
 uint8_t
 Transport::getStatus()
@@ -186,13 +186,17 @@ Transport::load(MediaData media)
         return false;
 
     /* Otherwise, load the file */
-    else
-    {
+    else {
         /* If the source is a local media file, load it from the SD card */
         if (media.type != FILETYPE_M3U) {
             switch (media.source) {
                 case LOCAL_FILE:
-                    if (Card_Manager::get_handle()->isReady() && audio_file.open(media.getPath(), O_RDONLY)) {
+                    if (_file_handle) {
+                        fclose(_file_handle);
+                    }
+                    _file_handle = fopen(media.filename.c_str(), "r");
+                    bytes_read = 0;
+                    if (_file_handle) {
                         *loadedMedia = media;
                         status = TRANSPORT_STOPPED;
                         resetMetadata();
@@ -229,15 +233,10 @@ Transport::play()
     playingUISound = false;
     volume_stream.setVolume((float) volume / TRANSPORT_MAX_VOLUME);
 
-    if (Card_Manager::get_handle()->isReady() && loadedMedia->loaded && loadedMedia->source == LOCAL_FILE && audio_file.isOpen()) {
+    if (loadedMedia->loaded && loadedMedia->source == LOCAL_FILE && _file_handle) {
         status = TRANSPORT_PLAYING;
         log_i("Playing file: %s", loadedMedia->filename.c_str());
         return true;
-    }
-
-    if (!Card_Manager::get_handle()->isReady() && loadedMedia->source == LOCAL_FILE) {
-        eject();
-        return false;
     }
 
     else if (loadedMedia->loaded && loadedMedia->source == REMOTE_FILE && WiFi.status() == WL_CONNECTED) {
@@ -252,8 +251,7 @@ Transport::play()
             log_i("Connecting to stream: %s", loadedMedia->url.c_str());
             if (url_stream.begin(loadedMedia->url.c_str())) {
                 status = TRANSPORT_PLAYING;
-            }
-            else {
+            } else {
                 log_e("Error connecting to stream: %s", loadedMedia->url.c_str());
                 status = TRANSPORT_STOPPED;
                 url_stream.end();
@@ -272,7 +270,7 @@ Transport::pause()
     spectrumAnalyzer->clear();
     log_i("Paused");
     if (loadedMedia->source == REMOTE_FILE) {
-            url_stream.end();
+        url_stream.end();
     }
     if (connection_task) {
         connection_task->remove();
@@ -288,8 +286,9 @@ Transport::stop()
     if (status == TRANSPORT_PLAYING || status == TRANSPORT_PAUSED || status == TRANSPORT_IDLE) {
 
         status = TRANSPORT_STOPPED;
+        bytes_read = 0;
         if (loadedMedia->source == LOCAL_FILE) {
-            audio_file.rewind();
+            fseek(_file_handle, 0, SEEK_SET);
         }
         log_i("Stopped");
         clearPlayTime();
@@ -312,7 +311,7 @@ Transport::eject()
     stop();
     resetMetadata();
     *loadedMedia = MediaData();
-    audio_file.close();
+    fclose(_file_handle);
     status = TRANSPORT_IDLE;
 }
 
@@ -484,33 +483,38 @@ Transport::loop()
         if (playTimeUpdateTimer.check(1000)) {
             playTime++;
         }
-
+        struct stat st;
+        int32_t _bytes_available = 0;
         switch (loadedMedia->source) {
 
             case LOCAL_FILE:
-                /* If the file has finished playing, stop the playback */
-                if (!Card_Manager::get_handle()->isReady() || !audio_file.available()) {
-                    stop();
-                    break;
-                }
 
                 /* If the audio buffer has space, write the next AUDIO_BUFFER_CHUNK_SIZE
                 bytes of the file to the buffer */
-                if (ringBuffer.availableForWrite() > AUDIO_BUFFER_WRITE_CHUNK && audio_file.available()) {
+
+                fstat(fileno(_file_handle), &st);
+                _bytes_available = st.st_size - bytes_read;
+                if (ringBuffer.availableForWrite() > AUDIO_BUFFER_WRITE_CHUNK && _bytes_available) {
                     uint16_t chunkSize = 0;
-                    if (audio_file.available() < AUDIO_BUFFER_WRITE_CHUNK) {
-                        chunkSize = audio_file.available();
-                    }
-                    else {
+                    if (_bytes_available < AUDIO_BUFFER_WRITE_CHUNK) {
+                        chunkSize = _bytes_available;
+                    } else {
                         chunkSize = AUDIO_BUFFER_WRITE_CHUNK;
                     }
+                    
                     uint8_t data[chunkSize];
-                    audio_file.read(data, chunkSize);
+                    int32_t _bytes = fread(data, 1, chunkSize, _file_handle);
 
+                    if (_bytes < 0) {
+                        log_e("Error reading file %s", loadedMedia->filename.c_str());
+                        stop();
+                        break;
+                    }
+                    bytes_read += _bytes;
                     /* Write the data to the metadata output stream.  There's a bug in the metadata
                     library that causes it to crash.  Might be a memory leak or null pointer dereference.
                     For now, the workaround I've found is to call begin() and end() on the metadata_output
-                    object before and after writing data on each pass of the main loop to make sure any 
+                    object before and after writing data on each pass of the main loop to make sure any
                     objects this library creates are properly initialized and destroyed. */
                     metadata_output.begin();
                     metadata_output.write(data, chunkSize);
@@ -519,6 +523,12 @@ Transport::loop()
                     mutex.lock();
                     ringBuffer.writeArray(data, chunkSize);
                     mutex.unlock();
+                }
+
+                /* If the file has finished playing, stop the playback */
+                if (_bytes_available <= 0) {
+                    log_i("End of file %s", loadedMedia->filename.c_str());
+                    stop();
                 }
                 break;
 
@@ -533,8 +543,7 @@ Transport::loop()
                         break;
                     }
                     break;
-                }
-                else {
+                } else {
                     connection_timeout_timer.reset();
                 }
                 /* If the audio buffer has space, write the next AUDIO_BUFFER_CHUNK_SIZE
@@ -563,8 +572,7 @@ Transport::loop()
             uint16_t chunkSize = 0;
             if (memory_stream.available() < AUDIO_BUFFER_WRITE_CHUNK) {
                 chunkSize = memory_stream.available();
-            }
-            else {
+            } else {
                 chunkSize = AUDIO_BUFFER_WRITE_CHUNK;
             }
             uint8_t data[chunkSize];
@@ -588,7 +596,7 @@ std::string
 Transport::getLoadedFileName()
 {
     if (loadedMedia->loaded) {
-        return (std::string)loadedMedia->filename;
+        return (std::string) loadedMedia->filename;
     } else {
         return "";
     }
@@ -598,7 +606,7 @@ std::string
 Transport::getLoadedArtist()
 {
     if (loadedMedia->loaded) {
-        return (std::string)loadedArtist;
+        return (std::string) loadedArtist;
     } else {
         return "";
     }
@@ -608,7 +616,7 @@ std::string
 Transport::getLoadedAlbum()
 {
     if (loadedMedia->loaded) {
-        return (std::string)loadedAlbum;
+        return (std::string) loadedAlbum;
     } else {
         return "";
     }
@@ -618,7 +626,7 @@ std::string
 Transport::getLoadedTitle()
 {
     if (loadedMedia->loaded) {
-        return (std::string)loadedTitle;
+        return (std::string) loadedTitle;
     } else {
         return "";
     }
@@ -628,7 +636,7 @@ std::string
 Transport::getLoadedGenre()
 {
     if (loadedMedia->loaded) {
-        return (std::string)loadedGenre;
+        return (std::string) loadedGenre;
     } else {
         return "";
     }
@@ -638,7 +646,7 @@ std::string
 Transport::getLoadedURL()
 {
     if (loadedMedia->loaded) {
-        return (std::string)loadedMedia->url;
+        return (std::string) loadedMedia->url;
     } else {
         return "";
     }
@@ -816,7 +824,7 @@ Transport::SpectrumAnalyzer::decayPeaks()
  *
  ****************************************************/
 
-//FIXME: cast to float before division
+// FIXME: cast to float before division
 void
 Transport::EqualizerController::setBass(uint8_t bass)
 {

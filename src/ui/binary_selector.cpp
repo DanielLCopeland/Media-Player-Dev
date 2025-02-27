@@ -34,7 +34,7 @@ bool
 UI::BinarySelector::get()
 {
     ListSelection list;
-    uint16_t selection = list.get(_options);
+    int32_t selection = list.get(_options);
     bool result;
     if (selection == UI_EXIT) {
         return false;

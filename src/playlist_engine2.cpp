@@ -39,7 +39,7 @@ Playlist_Engine2::Playlist_Engine2()
 Playlist_Engine2::Playlist_Engine2(Playlist_Engine2* instance)
 {
     instance_type = instance_type_t::SUB;
-    _handle = instance;
+    _playlist_engine = instance;
 }
 
 Playlist_Engine2::~Playlist_Engine2()
@@ -61,26 +61,35 @@ Playlist_Engine2::begin()
 Playlist_Engine2::error_t
 Playlist_Engine2::add_playlist(MediaData playlist, std::string name)
 {
-    if (!Card_Manager::get_handle()->isReady()) {
-        log_e("SD card not ready!");
-        return ERROR_FAILURE;
-    }
 
     sqlite3* db;
     FsFile playlist_file;
+    DIR* file = nullptr;
 
-    /* Create the playlist directory if it doesn't exist */
-    if (!Card_Manager::get_handle()->exists(PLAYLIST_DIR_PATH)) {
-        if (!Card_Manager::get_handle()->mkdir(PLAYLIST_DIR_PATH)) {
-            log_e("Failed to create playlist directory!");
+    /* Check if the playlist folder exists, if not, create it */
+    file = opendir(PLAYLIST_DIR_PATH);
+    if (file == nullptr) {
+        if (mkdir(PLAYLIST_DIR_PATH, 0777) == -1) {
+            log_e("Failed to create playlist directory: %s", PLAYLIST_DIR_PATH);
             return ERROR_FAILURE;
         }
+    } else {
+        closedir(file);
     }
 
     /* Open the database */
     if (sqlite3_open(PLAYLIST_DB_PATH, &db) != SQLITE_OK) {
         log_e("Failed to open database: %s", sqlite3_errmsg(db));
         sqlite3_close(db);
+        return ERROR_FAILURE;
+    }
+
+    /** Parse the playlist file and add entries to the database */
+    std::regex url_pattern(R"(https?://[^\s/$.?#].[^\s]*)");
+    std::string path = playlist.getPath();
+    std::ifstream file_stream(path.c_str());
+    if (!file_stream.is_open()) {
+        log_e("Failed to open the file: %s", path.c_str());
         return ERROR_FAILURE;
     }
 
@@ -91,23 +100,20 @@ Playlist_Engine2::add_playlist(MediaData playlist, std::string name)
             escape_single_quotes(name).c_str());
     if (sqlite3_exec(db, sql, NULL, 0, NULL) != SQLITE_OK) {
         log_e("Failed to create table: %s", sqlite3_errmsg(db));
+        file_stream.close();
         sqlite3_close(db);
         return ERROR_FAILURE;
     }
 
-    /** Parse the playlist file and add entries to the database */
-    std::regex url_pattern(R"(https?://[^\s/$.?#].[^\s]*)");
-    std::string path = "/sdfat";
-    path += playlist.getPath();
-    std::ifstream file(path.c_str());
-
-    if (!file.is_open()) {
-        std::cerr << "Failed to open the file." << std::endl;
+    if (load(name) != ERROR_NONE) {
+        log_e("Failed to load playlist: %s", name.c_str());
+        sqlite3_close(db);
+        file_stream.close();
         return ERROR_FAILURE;
     }
 
     std::string line;
-    while (std::getline(file, line)) {
+    while (std::getline(file_stream, line)) {
         std::sregex_iterator begin(line.begin(), line.end(), url_pattern);
         std::sregex_iterator end;
 
@@ -116,15 +122,17 @@ Playlist_Engine2::add_playlist(MediaData playlist, std::string name)
             std::string url = match.str();
             log_i("Found URL: %s", url.c_str());
             // Add the URL to the database
-            if (add_track(MediaData(NULL, NULL, url, FILETYPE_M3U, 0, REMOTE_FILE, true))) {
+            if (add_track(MediaData("", "", url, FILETYPE_M3U, 0, REMOTE_FILE, true)) == ERROR_NONE) {
                 log_i("Added URL to playlist: %s", name.c_str());
             } else {
                 log_e("Failed to add URL to playlist: %s", name.c_str());
+                file_stream.close();
                 sqlite3_close(db);
                 return ERROR_FAILURE;
             }
         }
     }
+    file_stream.close();
     sqlite3_close(db);
     return ERROR_NONE;
 }
@@ -133,11 +141,6 @@ Playlist_Engine2::error_t
 Playlist_Engine2::load(std::string name)
 {
     eject();
-
-    if (!Card_Manager::get_handle()->isReady()) {
-        log_e("SD card not ready!");
-        return ERROR_FAILURE;
-    }
 
     std::string _playlist_name;
     sqlite3* db;
@@ -162,11 +165,18 @@ Playlist_Engine2::load(std::string name)
         exists = true;
     }
 
+    if (!exists) {
+        log_e("Playlist does not exist: %s", name.c_str());
+        sqlite3_finalize(stmt);
+        sqlite3_close(db);
+        return ERROR_NOT_FOUND;
+    }
+
     sqlite3_finalize(stmt);
     sqlite3_close(db);
     current_playlist = name;
     _is_loaded = true;
-    return exists ? ERROR_NONE : ERROR_NOT_FOUND;
+    return ERROR_NONE;
 }
 
 void
@@ -193,7 +203,7 @@ Playlist_Engine2::next()
 
     /* Get the next track from the currently loaded playlist, if it exists */
     MediaData track;
-    error_t err = get_track(current_track_id + 1, track);
+    Playlist_Engine2::error_t err = get_track(current_track_id + 1, track);
     if (err != ERROR_NONE) {
         log_e("Failed to retrieve next track: %d", err);
         return err;
@@ -208,10 +218,6 @@ Playlist_Engine2::error_t
 Playlist_Engine2::previous()
 {
     eject();
-    if (!Card_Manager::get_handle()->isReady()) {
-        log_e("SD card not ready!");
-        return ERROR_FAILURE;
-    }
 
     if (!_is_loaded) {
         log_e("No playlist loaded!");
@@ -225,7 +231,7 @@ Playlist_Engine2::previous()
 
     /* Get the previous track from the currently loaded playlist, if it exists */
     MediaData track;
-    error_t err = get_track(current_track_id - 1, track);
+    Playlist_Engine2::error_t err = get_track(current_track_id - 1, track);
     if (err != ERROR_NONE) {
         log_e("Failed to retrieve previous track: %d", err);
         return err;
@@ -239,11 +245,6 @@ Playlist_Engine2::previous()
 Playlist_Engine2::error_t
 Playlist_Engine2::get_track(size_t id, MediaData& track)
 {
-    if (!Card_Manager::get_handle()->isReady()) {
-        log_e("SD card not ready!");
-        return ERROR_FAILURE;
-    }
-
     if (!_is_loaded) {
         log_e("No playlist loaded!");
         return ERROR_INVALID;
@@ -358,11 +359,6 @@ Playlist_Engine2::track_exists(size_t track)
 Playlist_Engine2::error_t
 Playlist_Engine2::add_track(MediaData track)
 {
-
-    if (!Card_Manager::get_handle()->isReady()) {
-        log_e("SD card not ready!");
-        return ERROR_FAILURE;
-    }
 
     if (!_is_loaded) {
         log_e("No playlist loaded!");

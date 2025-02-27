@@ -36,9 +36,19 @@ class Screensaver
         bool _enabled = false;
         bool _blanked = false;
         uint16_t _timeout; /* seconds */
+        static Screensaver* _handle;
+        Screensaver();
+        ~Screensaver() { delete _handle; }
+        Screensaver(Screensaver const&) = delete;
 
     public:
-        Screensaver();
+        static Screensaver* get_handle()
+        {
+            if (!_handle) {
+                _handle = new Screensaver();
+            }
+            return _handle;
+        }
         void loop();
         void enable() { _enabled = true; _blanked = false; }
         void disable() { _enabled = false; _blanked = false; }

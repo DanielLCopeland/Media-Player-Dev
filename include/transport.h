@@ -41,7 +41,7 @@ buffer is used to transfer audio data from one task to another. We use mutexes t
 #include <AudioTools/AudioLibs/AudioRealFFT.h>
 #include <AudioTools/Concurrency/All.h>
 #include <AudioTools/CoreAudio/MusicalNotes.h>
-#include <SdFat.h>
+#include <FS.h>
 #include <WiFi.h>
 #include <system.h>
 #include <timer.h>
@@ -297,8 +297,9 @@ class Transport
 
     audio_tools::Task audio_task;
     audio_tools::Task* connection_task = nullptr;
-
-    FsFile audio_file;
+    
+    FILE* _file_handle = nullptr;
+    uint32_t bytes_read = 0;
 
     /* Timer to control the play time display */
     Timer playTimeUpdateTimer;

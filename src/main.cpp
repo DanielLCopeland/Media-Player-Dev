@@ -31,6 +31,7 @@
 #include <SdFat.h>
 #include <Wire.h>
 #include <bluetooth.h>
+#include <playlist_engine2.h>
 #include <buttons.h>
 #include <card_manager.h>
 #include <functional>
@@ -65,8 +66,6 @@ SET_LOOP_TASK_STACK_SIZE(16 * 1024); /* 16KB */
  * should the device be lost or stolen.
  */
 Adafruit_SSD1306* display = nullptr;      /* Display */
-Screensaver* screensaver = nullptr;       /* Screensaver */
-UI::StatusScreen* statusScreen = nullptr; /* Status screen */
 UI::FileBrowser* filebrowser = nullptr;   /* File browser */
 UI::SystemMessage* notify = nullptr;      /* System messages */
 PlaylistEngine* playlistEngine = nullptr; /* Playlist engine */
@@ -218,7 +217,7 @@ checkButtons()
 
     /* Since we aren't using the shortpress event for the menu button, we can use it to disable the screensaver */
     if (Buttons::get_handle()->isHeld(BUTTON_MENU)) {
-        screensaver->reset();
+        Screensaver::get_handle()->reset();
     }
 }
 
@@ -227,8 +226,8 @@ setup()
 {
     /* Register custom VFS from vfs.h using SdFat as the backend. This does the magic for
     SQLite3 to be able to read and write to the SD card using Bill Greiman's
-    wonderful SdFat library */
-    esp_vfs_register("/sdfat", &sdfat_vfs, NULL);
+    awesome SdFat library */
+    esp_vfs_register("", &sdfat_vfs, NULL);
 
     Serial.begin(115200);
     log_i("This software is licensed under the GNU Public License v3.0");
@@ -275,9 +274,7 @@ setup()
                                         std::function<void()>(std::bind(&Transport::stop, Transport::get_handle())),
                                         std::function<uint8_t()>(std::bind(&Transport::getStatus, Transport::get_handle())));
     notify = new UI::SystemMessage();
-    screensaver = new Screensaver();
     Transport::get_handle()->begin();
-    statusScreen = new UI::StatusScreen();
     Config_Manager::get_handle()->begin();
     Card_Manager::get_handle()->begin();
     filebrowser = new UI::FileBrowser();
@@ -293,13 +290,20 @@ setup()
 
     /* Event handler for when we cannot connect to the network */
     WiFiEventId_t wifiConnectFailed = WiFi.onEvent(onWifiFailed, WiFiEvent_t::ARDUINO_EVENT_WIFI_STA_START);
+    MediaData mediadata;
+    mediadata.source = LOCAL_FILE;
+    mediadata.path = "/";
+    mediadata.filename = "test.m3u";
+    mediadata.loaded = true;
+    Playlist_Engine2::get_handle()->begin();
+    Playlist_Engine2::get_handle()->add_playlist(mediadata, "WTAQAM");
 }
 
 void
 loop()
 {
     /* Draw the main screen showing the currently playing file/url, transport status, and other info */
-    statusScreen->draw();
+    UI::StatusScreen::get_handle()->draw();
     /* Check for button presses and handle them */
     checkButtons();
     /* Handle streams and other housekeeping */

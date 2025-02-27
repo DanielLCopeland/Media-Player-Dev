@@ -24,14 +24,13 @@
 #ifndef common_h
 #define common_h
 
-#include <system.h>
 #include <Adafruit_GFX.h>
 #include <Adafruit_SSD1306.h>
 #include <WiFi.h>
 #include <buttons.h>
 #include <data.h>
 #include <gfx.h>
-#include <playlist_engine.h>
+//#include <playlist_engine.h>
 #include <screensaver.h>
 #include <string>
 #include <timer.h>
@@ -42,6 +41,8 @@
 #include <functional>
 #include <type_traits>
 #include <typeinfo>
+#include <bits/stdc++.h>
+#include <system.h>
 
 #include <ui/constants.h>
 #include <ui/animation.h>
@@ -63,7 +64,6 @@ class Buttons;
 class Screensaver;
 
 extern Adafruit_SSD1306* display;
-extern Screensaver* screensaver;
 
 #endif
 

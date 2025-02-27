@@ -28,12 +28,13 @@
 #include <WiFi.h>
 #include <bluetooth.h>
 #include <card_manager.h>
+#include <data.h>
 #include <esp_sntp.h>
 #include <playlist_engine.h>
 #include <screensaver.h>
 #include <time.h>
 #include <transport.h>
-#include <data.h>
+#include <unordered_map>
 
 enum file_type
 {
@@ -43,6 +44,7 @@ enum file_type
     FILETYPE_OGG,
     FILETYPE_M3U,
     FILETYPE_DIR,
+    FILETYPE_TEXT,
     FILETYPE_UNKNOWN
 };
 
@@ -61,7 +63,6 @@ class Bluetooth;
 class Screensaver;
 
 extern PlaylistEngine* playlistEngine;
-extern Screensaver* screensaver;
 
 /* Used to pass file/stream info around various parts of the system */
 class MediaData
@@ -80,10 +81,16 @@ class MediaData
 
     // Used to store temporary strings so we don't invalidate any pointers to them
     std::string buffer;
+    std::string text;
 
+  private:
+  public:
     MediaData operator&(const MediaData& other) const { return MediaData(other); }
 
-    MediaData(std::string filename, std::string path, std::string url, uint8_t type, uint16_t port, uint8_t source, bool loaded)
+    void set_name(std::string name) { this->text = text; }
+    std::string get_name() { return this->text; }
+
+    MediaData(std::string filename, std::string path, std::string url, uint8_t type, uint16_t port, uint8_t source, bool loaded, std::string text = "")
       : filename(filename)
       , path(path)
       , url(url)
@@ -93,6 +100,7 @@ class MediaData
       , loaded(loaded)
       , nextElement(0)
       , buffer("")
+      , text(text)
     {
     }
 
@@ -106,6 +114,7 @@ class MediaData
       , loaded(false)
       , nextElement(0)
       , buffer("")
+      , text("")
     {
     }
 
@@ -119,6 +128,7 @@ class MediaData
       , loaded(other.loaded)
       , nextElement(other.nextElement)
       , buffer(other.buffer)
+      , text(other.text)
     {
     }
 
@@ -210,6 +220,11 @@ class MediaData
         } else
             return url;
     }
+
+    static std::unordered_map<std::string, uint8_t> get_file_extensions()
+    {
+        return { { "mp3", FILETYPE_MP3 }, { "wav", FILETYPE_WAV }, { "flac", FILETYPE_FLAC }, { "ogg", FILETYPE_OGG }, { "m3u", FILETYPE_M3U } };
+    }
 };
 
 /* Takes a single dimensional const char array and allows one to select a row
@@ -225,15 +240,18 @@ class TableData
     }
     const char* get(size_t row, size_t column) { return table[(row * columns) + column]; }
     uint16_t size() { return length; }
-    void get_list(std::vector<std::string>* data, uint32_t index, uint32_t count, uint8_t sort_order, uint8_t sort_type)
+    void get_list(std::vector<MediaData>* data, uint32_t index, uint32_t count)
     {
         /* This function is used to get a list of files from the database */
+        MediaData mediadata;
         data->clear();
         for (uint32_t i = index; i < index + count; i++) {
             if (i >= length) {
                 break;
             }
-            data->push_back(get(i, 0));
+            mediadata.type = FILETYPE_TEXT;
+            mediadata.text = get(i, 0);
+            data->push_back(mediadata);
         }
     }
 
@@ -348,20 +366,20 @@ class Config_Manager
     {
         screensaver_timeout = timeout;
         preferences->putInt("scrnsvr_timeout", timeout);
-        screensaver->set_timeout(timeout);
+        Screensaver::get_handle()->set_timeout(timeout);
     }
     uint16_t getScreenSaverTimeout() { return screensaver_timeout; }
     void enableScreenSaver()
     {
         screensaver_enabled = true;
         preferences->putBool("scrnsvr_enabled", true);
-        screensaver->enable();
+        Screensaver::get_handle()->enable();
     }
     void disableScreenSaver()
     {
         screensaver_enabled = false;
         preferences->putBool("scrnsvr_enabled", false);
-        screensaver->disable();
+        Screensaver::get_handle()->disable();
     }
 
     void resetPreferences(); /* Factory defaults */

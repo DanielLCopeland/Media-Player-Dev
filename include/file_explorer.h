@@ -27,25 +27,28 @@
 
 #define SQLITE_TEMP_STORE 3
 
-#include <SdFat.h>
-#include <utilities.h>
+#include <FS.h>
+#include <callbacks.h>
 #include <card_manager.h>
+#include <dirent.h>
+#include <functional>
 #include <rom/md5_hash.h>
 #include <sqlite3.h>
 #include <string>
 #include <system.h>
-#include <callbacks.h>
+#include <unordered_map>
 #include <functional>
+#include <utilities.h>
 #include <vector>
 
-#define DB_FILE            ".index.db"
-#define ROOT_DIR           "/"
-#define FS_MOUNT_POINT     "/sdfat"
-#define SUBDIRECTORY_LIMIT 20
-#define DB_BUF_SIZE        1024
-#define MD5_DIGEST_LENGTH  16
+#define DB_FILE  ".index.db"
+#define ROOT_DIR "/"
+//#define FS_MOUNT_POINT     ""
+#define SUBDIRECTORY_LIMIT    20
+#define DB_BUF_SIZE           1024
+#define MD5_DIGEST_LENGTH     16
 #define MD5_DIGEST_STRING_LEN (MD5_DIGEST_LENGTH + 1)
-#define FILENAME_BUFFER_LEN       256
+#define FILENAME_BUFFER_LEN   256
 
 class Card_Manager;
 class File_Explorer;
@@ -107,8 +110,9 @@ class File_Explorer
      * @param count Number of files to return
      * @param sort_order Sort order of the files, either SORT_ASCENDING or SORT_DESCENDING
      */
-    error_t get_list(std::vector<MediaData>* data, uint32_t index, uint32_t count, uint8_t sort_order, uint8_t sort_type);
-
+    error_t get_list(std::vector<MediaData>* data, uint32_t index, uint32_t count);
+    //void get_list(std::vector<std::string>* data, uint32_t index, uint32_t count);
+    MediaData get_file(uint32_t index);
     /**
      * @brief Opens a directory
      *
@@ -160,16 +164,19 @@ class File_Explorer
      * @return uint32_t
      */
     uint32_t size() { return _num_files; }
+    void set_sort_order(uint8_t order) { _sort_order = order; }
+    void set_sort_type(uint8_t type) { _sort_type = type; }
 
   private:
-
     uint32_t _num_files = 0;
     void fill_dir_stack(MediaData& mediadata);
     std::vector<MediaData> directory_stack;
     bool ready;
     bool is_root_dir(MediaData& mediadata);
     error_t create_db(sqlite3* db);
-    std::string get_db_path(MediaData& mediadata);
+    uint8_t _sort_order = SORT_ASCENDING;
+    uint8_t _sort_type = SORT_NAME;
+    
 };
 
 #endif /* file_explorer_h */

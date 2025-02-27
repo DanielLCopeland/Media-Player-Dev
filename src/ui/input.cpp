@@ -419,7 +419,7 @@ void
 UI::TextInput::draw()
 {
     display->clearDisplay();
-    if (screensaver->is_blanked()) {
+    if (Screensaver::get_handle()->is_blanked()) {
         display->display();
         return;
     }

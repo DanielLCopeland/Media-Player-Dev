@@ -139,9 +139,9 @@ Config_Manager::begin()
 
     /* Start the screensaver */
     if (this->screensaver_enabled) {
-        screensaver->enable();
+        Screensaver::get_handle()->enable();
     } else {
-        screensaver->disable();
+        Screensaver::get_handle()->disable();
     }
 }
 
@@ -725,8 +725,8 @@ serviceLoop()
         }
 
         /* Screen saver */
-        if (screensaver != nullptr) {
-            screensaver->loop();
+        if (Screensaver::get_handle() != nullptr) {
+            Screensaver::get_handle()->loop();
         }
 
         /* Check alarms */

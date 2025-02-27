@@ -51,7 +51,7 @@ namespace MENUDATA {
 
 /* Main menu */
 namespace MAIN_m {
-enum items : uint16_t
+enum items : int32_t
 {
     WIFI,
     BLUETOOTH,
@@ -65,7 +65,7 @@ const char* const menu[] PROGMEM = { "Wifi", "Bluetooth", "System", "Playlist Ed
 
 /* System menu */
 namespace SYSTEM_m {
-enum items : uint16_t
+enum items : int32_t
 {
     AUDIO,
     DATETIME,
@@ -80,7 +80,7 @@ const char* const menu[] PROGMEM = { "Audio", "Date/Time", "Screen Saver", "USB 
 
 /* Date/Time menu */
 namespace DATETIME_m {
-enum items : uint16_t
+enum items : int32_t
 {
     TIME,
     DATE,
@@ -93,7 +93,7 @@ const char* const menu[] PROGMEM = { "Set Time", "Set Date", "Set Timezone", "Al
 
 namespace ALARM_m {
 /* Alarm menu */
-enum items : uint16_t
+enum items : int32_t
 {
     SET,
     MEDIA,
@@ -106,7 +106,7 @@ const char* const menu[] PROGMEM = { "Set Alarm", "Alarm Media", "Enable Alarm",
 
 /* Network settings menu */
 namespace NETWORK_m {
-enum items : uint16_t
+enum items : int32_t
 {
     TOGGLE,
     DHCP,
@@ -126,7 +126,7 @@ const char* const menu[] PROGMEM = { "Connect/Disconnect", "DHCP",    "SSID Scan
 
 /* Connect/Disconnect menu */
 namespace WIFI_m {
-enum items : uint16_t
+enum items : int32_t
 {
     ENABLE,
     DISABLE,
@@ -137,7 +137,7 @@ const char* const menu[] PROGMEM = { "Connect", "Disconnect" };
 
 /* Bluetooth menu */
 namespace BLUETOOTH_m {
-enum items : uint16_t
+enum items : int32_t
 {
     ENABLE,
     DISABLE,
@@ -148,7 +148,7 @@ const char* const menu[] PROGMEM = { "Enable", "Disable" };
 
 /* DHCP menu */
 namespace DHCP_TOGGLE_m {
-enum items : uint16_t
+enum items : int32_t
 {
     ENABLE,
     DISABLE,
@@ -159,7 +159,7 @@ const char* const menu[] PROGMEM = { "Enable", "Disable" };
 
 /* NTP Config menu */
 namespace NTP_m {
-enum items : uint16_t
+enum items : int32_t
 {
     SERVER,
     INTERVAL,
@@ -172,7 +172,7 @@ const char* const menu[] PROGMEM = { "NTP Server", "Update Interval", "Timezone"
 
 /* Playlist editor menu */
 namespace PLAYLIST_EDITOR_m {
-enum items : uint16_t
+enum items : int32_t
 {
     LOAD,
     EDIT,
@@ -185,7 +185,7 @@ const char* const menu[] PROGMEM = { "Load Playlist", "Edit Playlist", "Create P
 
 /* Playlist editor add/remove menu */
 namespace PLAYLIST_EDITOR_EDIT_m {
-enum items : uint16_t
+enum items : int32_t
 {
     ADDTRACK,
     REMOVETRACK,
@@ -195,7 +195,7 @@ const char* const menu[] PROGMEM = { "Add Track", "Delete Track" };
 }
 
 namespace AUDIO_m {
-enum items : uint16_t
+enum items : int32_t
 {
     BASS,
     MID,
@@ -208,7 +208,7 @@ const char* const menu[] PROGMEM = { "Bass", "Mid", "Treble", "UI Volume" };
 
 /* Screen saver menu */
 namespace SCREENSAVER_m {
-enum items : uint16_t
+enum items : int32_t
 {
     ENABLE,
     DISABLE,
@@ -220,7 +220,7 @@ const char* const menu[] PROGMEM = { "Enable", "Disable", "Timeout" };
 
 /* File browser alt menu */
 namespace FILE_BROWSER_m {
-enum items : uint16_t
+enum items : int32_t
 {
     ASC,
     DESC,

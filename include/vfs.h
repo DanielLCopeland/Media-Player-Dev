@@ -28,10 +28,18 @@
 
 #include <SdFat.h>
 #include <card_manager.h>
+#include <dirent.h>
 #include <esp_vfs.h>
 #include <vector>
 
 #define PATH_MAX 512
+
+struct vfs_dir
+{
+    FsFile dir;
+    FsFile file;
+    dirent entry;
+};
 
 struct file_descriptor
 {
@@ -172,6 +180,35 @@ vfs_fstat(int fd, struct stat* st)
     }
 }
 
+int
+vfs_stat(const char* path, struct stat* st)
+{
+    if (!Card_Manager::get_handle()->isReady()) {
+        return -1;
+    }
+
+    FsFile file;
+
+    if (!Card_Manager::get_handle()->exists(path)) {
+        return -1;
+    }
+
+    if (!file.open(path, O_RDONLY)) {
+        log_e("Failed to open file: %s", path);
+        return -1;
+    }
+
+    st->st_blksize = 512;
+    st->st_size = file.size();
+    st->st_mode = S_IRWXU | S_IRWXG | S_IRWXO | S_IFREG;
+    st->st_mtime = 0;
+    st->st_atime = 0;
+    st->st_ctime = 0;
+    log_i("File size: %d", st->st_size);
+    file.close();
+    return 0;
+}
+
 static off_t
 vfs_lseek(int fd, off_t offset, int mode)
 {
@@ -232,7 +269,7 @@ vfs_unlink(const char* path)
         return -1;
     }
 
-    return 1;
+    return 0;
 }
 
 static int
@@ -300,6 +337,10 @@ vfs_access(const char* path, int mode)
 static int
 vfs_fsync(int fd)
 {
+    if (!Card_Manager::get_handle()->isReady()) {
+        return -1;
+    }
+
     FsFile* file = vfs_get_file_handle(fd);
 
     if (file == nullptr) {
@@ -314,20 +355,80 @@ vfs_fsync(int fd)
     }
 }
 
-static esp_vfs_t sdfat_vfs = {
-    .flags = ESP_VFS_FLAG_DEFAULT,
-    .write = &vfs_write,
-    .lseek = &vfs_lseek,
-    .read = &vfs_read,
-    .open = &vfs_open,
-    .close = &vfs_close,
-    .fstat = &vfs_fstat,
-    .link = &vfs_link,
-    .unlink = &vfs_unlink,
-    .rename = &vfs_rename,
-    .fsync = &vfs_fsync,
-    .access = &vfs_access,
-    .truncate = &vfs_truncate
-};
+/** Directory functions **/
+static DIR*
+vfs_opendir(const char* name)
+{
+    if (!Card_Manager::get_handle()->isReady()) {
+        return nullptr;
+    }
+    vfs_dir* vdir = new vfs_dir;
+    if (!vdir->dir.open(name, O_RDONLY)) {
+        delete vdir;
+        return nullptr;
+    }
+    return reinterpret_cast<DIR*>(vdir);
+}
+
+static struct dirent*
+vfs_readdir(DIR* pdir)
+{
+    if (!Card_Manager::get_handle()->isReady()) {
+        return nullptr;
+    }
+    vfs_dir* vdir = reinterpret_cast<vfs_dir*>(pdir);
+    // FIXME:
+    if (!vdir->file.openNext(&vdir->dir, O_RDONLY)) {
+        return nullptr;
+    }
+    vdir->file.getName(vdir->entry.d_name, sizeof(vdir->entry.d_name));
+    vdir->entry.d_type = vdir->file.isDir() ? DT_DIR : DT_REG;
+    return &vdir->entry;
+}
+
+static int
+vfs_closedir(DIR* pdir)
+{
+    vfs_dir* vdir = reinterpret_cast<vfs_dir*>(pdir);
+    vdir->dir.close();
+    vdir->file.close();
+    delete vdir;
+    return 0;
+}
+
+static int
+vfs_mkdir(const char* path, mode_t mode)
+{
+    if (!Card_Manager::get_handle()->isReady()) {
+        return -1;
+    }
+
+    if (!Card_Manager::get_handle()->mkdir(path)) {
+        return -1;
+    }
+
+    return 0;
+}
+
+static esp_vfs_t sdfat_vfs = { .flags = ESP_VFS_FLAG_DEFAULT,
+                               .write = &vfs_write,
+                               .lseek = &vfs_lseek,
+                               .read = &vfs_read,
+                               .pread = NULL,
+                               .pwrite = NULL,
+                               .open = &vfs_open,
+                               .close = &vfs_close,
+                               .fstat = &vfs_fstat,
+                               .stat = &vfs_stat,
+                               .link = &vfs_link,
+                               .unlink = &vfs_unlink,
+                               .rename = &vfs_rename,
+                               .opendir = &vfs_opendir,
+                               .readdir = &vfs_readdir,
+                               .closedir = &vfs_closedir,
+                               .mkdir = &vfs_mkdir,
+                               .fsync = &vfs_fsync,
+                               .access = &vfs_access,
+                               .truncate = &vfs_truncate };
 
 #endif /* vfs_h */

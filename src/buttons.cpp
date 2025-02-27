@@ -53,12 +53,12 @@ Buttons::getButtonEvent(uint8_t button, uint8_t type)
                 (millis() - buttons[button].lastDebounceTime_shortPress > SHORTPRESS_MS)) {
                 buttons[button].lastState_shortPress = false;
                 buttons[button].shortPressLock = false;
-                if (!screensaver->is_blanked()) {
-                    screensaver->reset();
+                if (!Screensaver::get_handle()->is_blanked()) {
+                    Screensaver::get_handle()->reset();
                     return true;
                 }
                 else {
-                    screensaver->reset();
+                    Screensaver::get_handle()->reset();
                     return false;
                 }
             }
@@ -84,12 +84,12 @@ Buttons::getButtonEvent(uint8_t button, uint8_t type)
                 (millis() - buttons[button].lastDebounceTime_longPress > LONGPRESS_MS)) {
                 buttons[button].lastState_longPress = false;
                 buttons[button].longPressLock = false;
-                if (!screensaver->is_blanked()) {
-                    screensaver->reset();
+                if (!Screensaver::get_handle()->is_blanked()) {
+                    Screensaver::get_handle()->reset();
                     return true;
                 }
                 else {
-                    screensaver->reset();
+                    Screensaver::get_handle()->reset();
                     return false;
                 }
             }

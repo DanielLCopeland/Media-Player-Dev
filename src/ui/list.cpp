@@ -40,7 +40,7 @@ UI::ListSelection::~ListSelection()
     }
 }
 
-uint16_t
+int32_t
 UI::ListSelection::_get()
 {
     /* Main loop */
@@ -55,12 +55,28 @@ UI::ListSelection::_get()
 
         if (Buttons::get_handle()->getButtonEvent(BUTTON_PLAY, SHORTPRESS)) {
             Transport::get_handle()->playUIsound(load_item, load_item_len);
-            return selectedIndex;
+            _refresh = true;
+            return current_position.index;
         }
 
         if (Buttons::get_handle()->getButtonEvent(BUTTON_EXIT, SHORTPRESS)) {
             Transport::get_handle()->playUIsound(folder_close, folder_close_len);
+            _refresh = true;
             return UI_EXIT;
+        }
+
+        if (Buttons::get_handle()->getButtonEvent(BUTTON_STOP, SHORTPRESS)) {
+            Transport::get_handle()->playUIsound(folder_close, folder_close_len);
+            _refresh = true;
+            return UI_BACK;
+        }
+
+        if (Buttons::get_handle()->getButtonEvent(BUTTON_MENU, SHORTPRESS)) {
+            Transport::get_handle()->playUIsound(folder_open, folder_close_len);
+            _refresh = true;
+            if (_callback) {
+                this->_callback();
+            }
         }
 
         /* Longpress events */
@@ -81,7 +97,7 @@ UI::ListSelection::_get()
     return 0;
 }
 
-uint16_t
+int32_t
 UI::ListSelection::get(const char* const menuItems[], uint16_t numItems)
 {
     menu_type = MENU_TYPE_CONST_CHAR;
@@ -89,14 +105,14 @@ UI::ListSelection::get(const char* const menuItems[], uint16_t numItems)
     this->numItems = numItems;
     this->menuItems = menuItems;
 
-    cursor = 0;
-    page = 1;
-    selectedIndex = 0;
+    current_position.cursor = 0;
+    current_position.page = 1;
+    current_position.index = 0;
 
     return _get();
 }
 
-uint16_t
+int32_t
 UI::ListSelection::get(std::vector<std::string>& listItems)
 {
     menu_type = MENU_TYPE_STRING_VECTOR;
@@ -104,14 +120,14 @@ UI::ListSelection::get(std::vector<std::string>& listItems)
     this->listItems_ptr = &listItems;
     numItems = listItems.size();
 
-    cursor = 0;
-    page = 1;
-    selectedIndex = 0;
+    current_position.cursor = 0;
+    current_position.page = 1;
+    current_position.index = 0;
 
     return _get();
 }
 
-uint16_t
+int32_t
 UI::ListSelection::get(PlaylistEngine* playlist_engine, bool playlist_showindex)
 {
     if (!playlist_engine->isLoaded()) {
@@ -124,53 +140,49 @@ UI::ListSelection::get(PlaylistEngine* playlist_engine, bool playlist_showindex)
 
     menu_type = MENU_TYPE_PLAYLIST;
     numItems = _playlist_engine->size();
-    selectedIndex = _playlist_engine->getCurrentTrackIndex();
+    current_position.index = _playlist_engine->getCurrentTrackIndex();
 
     /* Calculate the page and cursor position based on the selected item index */
-    page = (selectedIndex / MAX_TEXT_LINES) + 1;
-    defaultIndex = selectedIndex % MAX_TEXT_LINES;
-    cursor = defaultIndex;
+    current_position.page = (current_position.index / MAX_TEXT_LINES) + 1;
+    current_position.index = current_position.index % MAX_TEXT_LINES;
+    current_position.cursor = defaultIndex;
 
     return _get();
 }
 
-uint16_t
-UI::ListSelection::get(File_Explorer* file_explorer)
-{
-    menu_type = MENU_TYPE_FILE_EXPLORER;
-    numItems = file_explorer->size();
-    selectedIndex = 0;
-    page = 1;
-    cursor = 0;
-    _file_explorer = file_explorer;
-
-    return _get();
-}
-
-std::vector<std::string>
+std::vector<MediaData>
 UI::ListSelection::getDisplayedItems()
 {
-    std::vector<std::string> displayedItems;
-    MediaData item;
+    std::vector<MediaData> displayedItems;
+    MediaData menudata;
+    uint8_t lines = MAX_TEXT_LINES;
+    uint16_t start_index = (current_position.page - 1) * lines;
+    uint16_t end_index = std::min((int) current_position.page * (int) lines, (int) numItems);
 
-    for (uint16_t i = (page - 1) * MAX_TEXT_LINES; i < (page * MAX_TEXT_LINES); i++) {
+    for (uint16_t i = start_index; i < end_index; i++) {
         switch (menu_type) {
             case MENU_TYPE_CONST_CHAR:
                 if (i < numItems)
-                    displayedItems.push_back(menuItems[i]);
+                    menudata.text = menuItems[i];
+                menudata.type = FILETYPE_TEXT;
+                displayedItems.push_back(menudata);
                 break;
             case MENU_TYPE_STRING_VECTOR:
                 if (i < numItems)
-                    displayedItems.push_back((*listItems_ptr)[i]);
+                    menudata.text = (*listItems_ptr)[i];
+                menudata.type = FILETYPE_TEXT;
+                displayedItems.push_back(menudata);
                 break;
             case MENU_TYPE_PLAYLIST:
                 if (i < numItems) {
-                    item = _playlist_engine->getTrack(i);
-                    if (item.source == LOCAL_FILE && item.loaded) {
-                        displayedItems.push_back(item.filename);
-                    } else if (item.source == REMOTE_FILE && item.loaded) {
-                        displayedItems.push_back(item.url);
+                    menudata = _playlist_engine->getTrack(i);
+                    if (menudata.source == LOCAL_FILE && menudata.loaded) {
+                        menudata.text = menudata.filename;
+                    } else if (menudata.source == REMOTE_FILE && menudata.loaded) {
+                        menudata.text = menudata.url;
                     }
+                    menudata.type = FILETYPE_TEXT;
+                    displayedItems.push_back(menudata);
                 }
             default:
                 break;
@@ -178,28 +190,10 @@ UI::ListSelection::getDisplayedItems()
     }
 
     if (menu_type == MENU_TYPE_CUSTOM) {
-        uint8_t lines = MAX_TEXT_LINES;
-
-        if ((page - 1) * MAX_TEXT_LINES + MAX_TEXT_LINES > numItems) {
-            lines = numItems - (page - 1) * MAX_TEXT_LINES;
+        if ((current_position.page - 1) * MAX_TEXT_LINES + MAX_TEXT_LINES > numItems) {
+            lines = numItems - (current_position.page - 1) * MAX_TEXT_LINES;
         }
-        _get_list(&displayedItems, (page - 1) * MAX_TEXT_LINES, lines, SORT_ASC, SORT_NAME);
-    }
-
-    if (menu_type == MENU_TYPE_FILE_EXPLORER) {
-        uint8_t lines = MAX_TEXT_LINES;
-
-        if ((page - 1) * MAX_TEXT_LINES + MAX_TEXT_LINES > numItems) {
-            lines = numItems - (page - 1) * MAX_TEXT_LINES;
-        }
-        _file_explorer->get_list(&_mediadata_list, (page - 1) * MAX_TEXT_LINES, lines, SORT_ASC, SORT_NAME);
-        for (uint8_t i = 0; i < _mediadata_list.size(); i++) {
-            if (_mediadata_list[i].source == LOCAL_FILE && _mediadata_list[i].loaded) {
-                displayedItems.push_back(_mediadata_list[i].filename);
-            } else if (_mediadata_list[i].source == REMOTE_FILE && _mediadata_list[i].loaded) {
-                displayedItems.push_back(_mediadata_list[i].url);
-            }
-        }
+        _get_list(&displayedItems, (current_position.page - 1) * MAX_TEXT_LINES, lines);
     }
 
     return displayedItems;
@@ -209,22 +203,27 @@ void
 UI::ListSelection::draw()
 {
     display->clearDisplay();
-    if (screensaver->is_blanked()) {
+    if (Screensaver::get_handle()->is_blanked()) {
         display->display();
         return;
     }
     display->setTextSize(1);
     display->setTextWrap(false);
 
-    std::vector<std::string> displayedItems;
-    displayedItems = getDisplayedItems();
-    if (displayedItems.size() == 0) {
+    uint8_t offset = 0; /* How many pixels to shift the text to the right to make room for icons */
+
+    if (_refresh) {
+        displayedItems = getDisplayedItems();
+        _refresh = false;
+    }
+
+    if (numItems == 0) {
         display->setTextColor(WHITE, BLACK);
         display->print("No items found!");
         display->display();
         return;
     }
-    selected_item = displayedItems[cursor];
+    selected_item = displayedItems[current_position.cursor].text;
 
     for (uint16_t i = 0; i < displayedItems.size(); i++) {
         display->setCursor(0, i * 8);
@@ -239,14 +238,30 @@ UI::ListSelection::draw()
             display->print(":");
         }
 
-        if (i == cursor) {
+        if (displayedItems[i].type != FILETYPE_TEXT) {
+            switch (displayedItems[i].type) {
+                case FILETYPE_DIR:
+                    display->drawBitmap(0, i * 8, bitmap_folder, 7, 7, WHITE);
+                    break;
+                case FILETYPE_M3U:
+                    display->drawBitmap(0, i * 8, bitmap_playlist, 7, 7, WHITE);
+                    break;
+                default:
+                    display->drawBitmap(0, i * 8, bitmap_note, 7, 7, WHITE);
+                    break;
+            }
+            offset = 8;
+            display->setCursor(offset, i * 8);
+        }
+
+        if (i == current_position.cursor) {
             display->setTextColor(BLACK, WHITE);
-            marquee->draw(0, i * 8);
+            marquee->draw(offset, i * 8);
         }
 
         else {
             display->setTextColor(WHITE, BLACK);
-            display->print(displayedItems[i].c_str());
+            display->print(displayedItems[i].text.c_str());
         }
     }
     display->display();
@@ -255,16 +270,17 @@ UI::ListSelection::draw()
 void
 UI::ListSelection::cursorUp()
 {
-    if (cursor > 0) {
-        cursor--;
-        selectedIndex--;
+    if (current_position.cursor > 0) {
+        current_position.cursor--;
+        current_position.index--;
         Transport::get_handle()->playUIsound(click, click_len);
     }
 
-    else if (cursor == 0 && page > 1) {
-        page--;
-        cursor = MAX_TEXT_LINES - 1;
-        selectedIndex--;
+    else if (current_position.cursor == 0 && current_position.page > 1) {
+        current_position.page--;
+        current_position.cursor = MAX_TEXT_LINES - 1;
+        current_position.index--;
+        _refresh = true;
         Transport::get_handle()->playUIsound(click, click_len);
     }
 }
@@ -272,21 +288,22 @@ UI::ListSelection::cursorUp()
 void
 UI::ListSelection::cursorDown()
 {
-    if (cursor < MAX_TEXT_LINES - 1 && page <= numPages() && selectedIndex < numItems - 1) {
-        cursor++;
-        selectedIndex++;
+    if (current_position.cursor < MAX_TEXT_LINES - 1 && current_position.page <= numPages() && current_position.index < numItems - 1) {
+        current_position.cursor++;
+        current_position.index++;
         Transport::get_handle()->playUIsound(click, click_len);
     }
 
-    else if (cursor == MAX_TEXT_LINES - 1 && page < numPages()) {
-        page++;
-        cursor = 0;
-        selectedIndex++;
+    else if (current_position.cursor == MAX_TEXT_LINES - 1 && current_position.page < numPages()) {
+        current_position.page++;
+        current_position.cursor = 0;
+        current_position.index++;
+        _refresh = true;
         Transport::get_handle()->playUIsound(click, click_len);
     }
 }
 
-uint16_t
+uint32_t
 UI::ListSelection::numPages()
 {
     uint32_t pages;

@@ -44,7 +44,6 @@ REPEAT_MS milliseconds after the first longpress event when called in a loop. */
 #define REPEAT_MS 100
 
 class Screensaver;
-extern Screensaver* screensaver;
 
 enum buttonNames
 {

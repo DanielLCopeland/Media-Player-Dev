@@ -27,8 +27,8 @@
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-#ifndef playlist_engine_h
-#define playlist_engine_h
+#ifndef playlist_engine2_h
+#define playlist_engine2_h
 
 #include <SdFat.h>
 #include <card_manager.h>
@@ -45,7 +45,7 @@
 #include <string>
 
 #define PLAYLIST_DIR_PATH "/playlists"
-#define PLAYLIST_DB_PATH "/playlists/.playlist.db"
+#define PLAYLIST_DB_PATH "/playlists/.playlists.db"
 
 class MediaData;
 class Transport;
@@ -84,6 +84,8 @@ class Playlist_Engine2
     Playlist_Engine2(Playlist_Engine2* _playlist_engine);
     ~Playlist_Engine2();
 
+    void get_list(std::vector<MediaData>* data, uint32_t index, uint32_t count);
+
     error_t begin();
     bool end();
     playlist_state_t is_playing() { return status; }
@@ -108,8 +110,8 @@ class Playlist_Engine2
     error_t add_playlist(MediaData playlist, std::string name);
     error_t remove_playlist(size_t playlist);
     error_t create_playlist(std::string name);
-    Playlist_Engine2* get_handle() {
-        if (!_handle && instance_type == instance_type_t::MAIN) {
+    static Playlist_Engine2* get_handle() {
+        if (!_handle) {
             _handle = new Playlist_Engine2();
         }
         return _handle;
@@ -122,10 +124,12 @@ class Playlist_Engine2
     playlist_state_t status;
     playlist_mode_t playlist_mode;
     static Playlist_Engine2* _handle;
+    Playlist_Engine2* _playlist_engine = nullptr;
     size_t current_track_id = 0;
     std::string current_playlist;
     bool _is_loaded = false;
     MediaData current_track = MediaData();
+    Playlist_Engine2* _playlist_engine_main;
 };
 
 #endif

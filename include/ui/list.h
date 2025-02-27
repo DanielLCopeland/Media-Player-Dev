@@ -25,6 +25,8 @@
 #define list_h
 
 #include <file_explorer.h>
+#include <functional>
+
 #include <ui/common.h>
 
 class TableData;
@@ -46,61 +48,86 @@ enum menuType
 class ListSelection
 {
   private:
-    std::function<void(std::vector<std::string>*, uint32_t, uint32_t, uint8_t, uint8_t)> _get_list;
+    std::function<void(std::vector<MediaData>*, uint32_t, uint32_t)> _get_list;
 
   public:
     ListSelection();
     ~ListSelection();
 
+    struct position
+    {
+        position() { cursor = 0; page = 1; index = 0; };
+        uint16_t cursor = 0;
+        uint32_t page = 1;
+        uint32_t index = 0;
+    };
+
+    void refresh() { 
+        _refresh = true;
+    }
+
     /* Overloads for different data sources */
-    uint16_t get(const char* const menuItems[], uint16_t numItems);
-    uint16_t get(std::vector<std::string>& listItems);
+    int32_t get(const char* const menuItems[], uint16_t numItems);
+    int32_t get(std::vector<std::string>& listItems);
 
     /* Returns the index of the selected item from a PlaylistEngine object.
     If playlist_showindex is true, the index of the currently selected track
     will be highlighted in the list. */
-    uint16_t get(PlaylistEngine* playlist, bool playlist_showindex = false);
-    uint16_t get(File_Explorer* file_explorer);
+    int32_t get(PlaylistEngine* playlist, bool playlist_showindex = false);
+    // uint16_t get(File_Explorer* file_explorer);
 
     template<typename T>
-    uint16_t get(T* _object, bool show_index = false, bool show_icons = false)
+    int32_t get(T* _object, std::function<void()> callback = nullptr)
     {
         menu_type = MENU_TYPE_CUSTOM;
         numItems = _object->size();
-        selectedIndex = 0;
-        page = 1;
-        cursor = 0;
-            _get_list = [_object](std::vector<std::string>* data, uint32_t index, uint32_t count, uint8_t sort_order, uint8_t sort_type) {
-                _object->get_list(data, index, count, sort_order, sort_type);
-            };
+        if (callback) {
+            _callback = callback;
+        } else {
+            _callback = nullptr;
+        }
+        _get_list = [_object](std::vector<MediaData>* data, uint32_t index, uint32_t count) { _object->get_list(data, index, count); };
         return _get();
     }
 
     std::string getSelected() { return selected_item; }
-    std::vector<MediaData> get_mediadata_list() { return _mediadata_list; }
+
+    uint16_t cursor_position() { return current_position.cursor; }
+    uint16_t selected_index() { return current_position.index; }
+    uint16_t current_page() { return current_position.page; }
+    position get_position() { return current_position; }
+    void set_position(position pos) { current_position = pos; }
+    void reset_position()
+    {
+        current_position.cursor = 0;
+        current_position.page = 1;
+        current_position.index = 0;
+        displayedItems.clear();
+        _refresh = true;
+    }
 
   private:
-    uint16_t _get();
-    uint16_t selectedIndex = 0;
-    uint16_t cursor = 0;
-    uint16_t page = 1;
+    int32_t _get();
+    std::function<void()> _callback = nullptr;
+    bool _refresh = true;
+    position current_position;
     const char* const* menuItems = nullptr;
     std::vector<std::string>* listItems_ptr = nullptr;
-    std::vector<MediaData> _mediadata_list;
+    std::vector<MediaData> displayedItems;
     TableData* table = nullptr;
     PlaylistEngine* _playlist_engine = nullptr;
     bool _playlist_showindex = false;
-    uint16_t defaultIndex = 0;
-    uint16_t numItems = 0;
+    uint32_t defaultIndex = 0;
+    uint32_t numItems = 0;
     uint8_t menu_type;
     void draw();
     void cursorUp();
     void cursorDown();
-    std::vector<std::string> getDisplayedItems();
-    std::string selected_item = "";
+    std::vector<MediaData> getDisplayedItems();
+    std::string selected_item;
     Marquee* marquee = nullptr;
     File_Explorer* _file_explorer = nullptr;
-    uint16_t numPages();
+    uint32_t numPages();
 };
 
 }   // namespace UI

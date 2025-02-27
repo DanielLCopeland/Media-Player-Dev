@@ -2,7 +2,7 @@
  * @file status.h
  *
  * @brief Displays the main status screen. Part of the UI library.
- * 
+ *
  * @author Dan Copeland
  *
  * Licensed under GPL v3.0
@@ -36,10 +36,20 @@ namespace UI {
 class StatusScreen
 {
   public:
-    StatusScreen();
+    StatusScreen(const StatusScreen&) = delete;
+    static StatusScreen* get_handle()
+    {
+        if (!_handle) {
+            _handle = new StatusScreen();
+        }
+        return _handle;
+    }
     void draw();
 
   private:
+    StatusScreen();
+    ~StatusScreen() { delete _handle; }
+    static StatusScreen* _handle;
     uint16_t* spectrumAnalyzerCurrentVal;
     uint16_t* spectrumAnalyzerPeak;
     size_t playTime = 0;
@@ -51,6 +61,6 @@ class StatusScreen
     SpectrumAnalyzer* spectrumAnalyzer = nullptr;
 };
 
-} // namespace UI
+}   // namespace UI
 
 #endif

@@ -38,7 +38,10 @@ enum Constants : int32_t
     SELECTED_ITEM_ROTATE_SPEED = 150,
     MAX_TEXT_LINES = 4,
     MAX_CHARACTERS_PER_LINE = 19,
-    UI_EXIT = std::numeric_limits<uint16_t>::max(),
+    UI_EXIT = -1,
+    UI_ENTER = -2,
+    UI_BACK = -3,
+    UI_SPECIAL = -4,
     UI_EXIT_TIMEOUT = 4000,
     NOTIFICATION_ANIMATION_FRAME_DURATION = 250
 };

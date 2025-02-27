@@ -159,6 +159,7 @@ db_callback_get_files(void* data, int argc, char** argv, char** azColName)
     }
     mediadata.source = LOCAL_FILE;
     mediadata.loaded = true;
+    mediadata.text = mediadata.filename;
     static_cast<std::vector<MediaData>*>(data)->push_back(mediadata);
     return 0;
 }

@@ -71,6 +71,7 @@ class Card_Manager : public SdFs
     uint32_t lastInsertionCheck = 0;
     uint32_t lastRemovalCheck = 0;
     static Card_Manager* _handle;
+    SemaphoreHandle_t _mutex;
 };
 
 #endif

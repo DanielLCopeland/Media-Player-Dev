@@ -23,6 +23,8 @@
 
 #include <screensaver.h>
 
+Screensaver* Screensaver::_handle = nullptr;
+
 Screensaver::Screensaver() : _timeout(DEFAULT_SCREENSAVER_TIMEOUT), _enabled(false), _blanked(false)
 {
 }

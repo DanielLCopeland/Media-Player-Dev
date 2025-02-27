@@ -25,8 +25,6 @@
 
 #include <file_explorer.h>
 
-
-
 File_Explorer::File_Explorer()
 {
     ready = false;
@@ -40,12 +38,10 @@ File_Explorer::init(MediaData& dir, std::function<void(uint32_t, uint32_t)> stat
 {
     log_i("Initializing file explorer");
     directory_stack.clear();
-    if (Card_Manager::get_handle()->isReady()) {
-        if (open_dir(dir, status_callback) != ERROR_NONE) {
-            log_e("Failed to initialize file explorer");
-        } else {
-            ready = true;
-        }
+    if (open_dir(dir, status_callback) != ERROR_NONE) {
+        log_e("Failed to initialize file explorer");
+    } else {
+        ready = true;
     }
 }
 
@@ -66,13 +62,6 @@ File_Explorer::open_dir(MediaData& mediadata, std::function<void(uint32_t, uint3
         return ERROR_INVALID;
     }
 
-    /* Always want to do a sanity check and make sure the SD card is still there before working with it */
-    if (!Card_Manager::get_handle()->isReady()) {
-        close();
-        log_e("SD card not ready");
-        return ERROR_FAILURE;
-    }
-
     if (generate_index(mediadata, status_callback) != ERROR_NONE) {
         log_e("Failed to generate index");
         return ERROR_FAILURE;
@@ -85,10 +74,6 @@ File_Explorer::open_dir(MediaData& mediadata, std::function<void(uint32_t, uint3
 File_Explorer::error_t
 File_Explorer::exit_dir()
 {
-    if (!ready || !Card_Manager::get_handle()->isReady()) {
-        return ERROR_FAILURE;
-    }
-
     if (directory_stack.size() <= 1) {
         return ERROR_ROOT_DIR;
     }
@@ -153,41 +138,39 @@ File_Explorer::fill_dir_stack(MediaData& mediadata)
 File_Explorer::error_t
 File_Explorer::generate_index(MediaData& mediadata, std::function<void(uint32_t, uint32_t)> status_callback)
 {
+    DIR* _dir_handle = opendir(mediadata.getPath());
+    if (!_dir_handle || mediadata.type != FILETYPE_DIR || mediadata.loaded == false) {
+        log_e("Failed to open directory");
+        return ERROR_FAILURE;
+    }
 
-    FsFile file_handle;
-    FsFile dir_handle;
+    std::string path = mediadata.getPath();
+    std::string _db_path = std::string(mediadata.getPath());
+    if (_db_path != "/") {
+        _db_path += "/";
+    }
+    _db_path += DB_FILE;
+
     sqlite3* sqlite_db;
     MD5Context md5;
     unsigned char _checksum[MD5_DIGEST_LENGTH];
     char checksum_str[MD5_DIGEST_STRING_LEN] = ("");
     char sql[DB_BUF_SIZE] = ("");
 
-    /* Open the directory */
-    if (!Card_Manager::get_handle()->isReady() || !dir_handle.open(mediadata.getPath(), O_RDONLY)) {
-        log_e("Failed to open directory");
-        return ERROR_FAILURE;
-    }
-
-    dir_handle.rewind();
-
     /* Calculate the checksum of the directory */
     _num_files = 0;
     MD5Init(&md5);
-    while (Card_Manager::get_handle()->isReady() && file_handle.openNext(&dir_handle, O_RDONLY)) {
+    struct dirent* entry;
+    while ((entry = readdir(_dir_handle)) != nullptr) {
         serviceLoop();
-        char filename_buffer[FILENAME_BUFFER_LEN] = ("");
-        file_handle.getName(filename_buffer, FILENAME_BUFFER_LEN);
-        if (strcmp(filename_buffer, DB_FILE) == 0) {
-            continue;
-        }
-        std::string extension = filename_buffer;
-        extension = extension.substr(extension.find_last_of(".") + 1);
-        if (extension != "mp3" && extension != "wav" && extension != "flac" && extension != "ogg" && extension != "m3u" && !file_handle.isDirectory()) {
+        std::string filename = entry->d_name;
+        std::string extension = filename.substr(filename.find_last_of(".") + 1);
+
+        if (MediaData::get_file_extensions().find(extension) == MediaData::get_file_extensions().end() && entry->d_type != DT_DIR || filename == DB_FILE) {
             continue;
         }
 
-        MD5Update(&md5, (unsigned char*) filename_buffer, strlen(filename_buffer));
-
+        MD5Update(&md5, reinterpret_cast<const unsigned char*>(filename.c_str()), filename.size());
         _num_files++;
 
         if (status_callback != nullptr) {
@@ -195,16 +178,14 @@ File_Explorer::generate_index(MediaData& mediadata, std::function<void(uint32_t,
         }
     }
     MD5Final(_checksum, &md5);
-    file_handle.close();
+    closedir(_dir_handle);
 
-    if (Card_Manager::get_handle()->isReady()) {
-        if (sqlite3_open(get_db_path(mediadata).c_str(), &sqlite_db) != SQLITE_OK) {
-            log_e("Failed to open database file: %s", get_db_path(mediadata).c_str());
-            log_e("DB Path: %s", get_db_path(mediadata).c_str());
-            log_e("Error: %s", sqlite3_errmsg(sqlite_db));
-            sqlite3_close(sqlite_db);
-            return ERROR_FAILURE;
-        }
+    if (sqlite3_open(_db_path.c_str(), &sqlite_db) != SQLITE_OK) {
+        log_e("Failed to open database file: %s", _db_path.c_str());
+        log_e("DB Path: %s", _db_path.c_str());
+        log_e("Error: %s", sqlite3_errmsg(sqlite_db));
+        sqlite3_close(sqlite_db);
+        return ERROR_FAILURE;
     }
 
     /* Retrieve the checksum from the database and compare it to the checksum of the directory */
@@ -214,7 +195,7 @@ File_Explorer::generate_index(MediaData& mediadata, std::function<void(uint32_t,
     }
     sql[0] = '\0';
     snprintf(sql, DB_BUF_SIZE, "SELECT checksum FROM meta WHERE id = 1");
-    if (Card_Manager::get_handle()->isReady() && sqlite3_exec(sqlite_db, sql, db_callback_get_checksum, &db_checksum, NULL) != SQLITE_OK) {
+    if (sqlite3_exec(sqlite_db, sql, db_callback_get_checksum, &db_checksum, NULL) != SQLITE_OK) {
         log_e("Failed to get checksum. Attempting to regenerate database");
         log_e("SQL: %s", sql);
         log_e("Error: %s", sqlite3_errmsg(sqlite_db));
@@ -235,35 +216,18 @@ File_Explorer::generate_index(MediaData& mediadata, std::function<void(uint32_t,
         sqlite3_close(sqlite_db);
     }
 
-    /** Checksums do not match or does not exist, regenerate the database */
-    std::string db_path = mediadata.getPath();
-    if (db_path != "/") {
-        db_path += "/";
-    }
-    db_path += DB_FILE;
-    log_i("Database path: %s", db_path.c_str());
-    if (Card_Manager::get_handle()->exists(db_path.c_str())) {
-        log_i("Database file exists");
-    } else {
-        log_i("Database file does not exist");
-    }
-    if (Card_Manager::get_handle()->isReady()) {
-        if (Card_Manager::get_handle()->exists(db_path.c_str()) && !Card_Manager::get_handle()->remove(db_path.c_str())) {
-            log_e("Failed to remove database file");
-            log_e("DB Path: %s", db_path.c_str());
-            sqlite3_close(sqlite_db);
-            return ERROR_FAILURE;
-        }
-    } else {
-        log_e("SD failure");
-        sqlite3_free(sqlite_db);
+    struct stat buffer;
+    if (stat(_db_path.c_str(), &buffer) == 0 && unlink(_db_path.c_str()) != 0) {
+        log_e("Failed to remove database file");
+        log_e("DB Path: %s", _db_path.c_str());
         sqlite3_close(sqlite_db);
         return ERROR_FAILURE;
     }
+
     /* Open the database file for writing */
-    if (Card_Manager::get_handle()->isReady() && sqlite3_open(get_db_path(mediadata).c_str(), &sqlite_db) != SQLITE_OK) {
+    if (sqlite3_open(_db_path.c_str(), &sqlite_db) != SQLITE_OK) {
         log_e("Failed to open database file");
-        log_e("DB Path: %s", get_db_path(mediadata).c_str());
+        log_e("DB Path: %s", _db_path.c_str());
         log_e("Error: %s", sqlite3_errmsg(sqlite_db));
         sqlite3_free(sqlite_db);
         sqlite3_close(sqlite_db);
@@ -271,7 +235,7 @@ File_Explorer::generate_index(MediaData& mediadata, std::function<void(uint32_t,
     }
     log_i("Generating database schema");
     /* Generate the database schema */
-    if (Card_Manager::get_handle()->isReady() && create_db(sqlite_db) != ERROR_NONE) {
+    if (create_db(sqlite_db) != ERROR_NONE) {
         log_e("Failed to create database schema");
         sqlite3_free(sqlite_db);
         sqlite3_close(sqlite_db);
@@ -279,47 +243,37 @@ File_Explorer::generate_index(MediaData& mediadata, std::function<void(uint32_t,
     }
 
     log_i("Writing to database");
-    dir_handle.rewind();
+    _dir_handle = opendir(path.c_str());
+    if (!_dir_handle) {
+        log_e("Failed to open directory");
+        closedir(_dir_handle);
+        sqlite3_close(sqlite_db);
+        return ERROR_FAILURE;
+    }
     MD5Init(&md5);
     uint32_t id = 0;
 
     /* Retrieve every filename in the directory and write its attributes to the database, and calculate the checksum */
-    while (Card_Manager::get_handle()->isReady() && file_handle.openNext(&dir_handle, O_RDONLY)) {
+    while ((entry = readdir(_dir_handle)) != nullptr) {
+
         serviceLoop();
-        char filename_buffer[FILENAME_BUFFER_LEN] = ("");
-        file_handle.getName(filename_buffer, FILENAME_BUFFER_LEN);
-        if (strcmp(filename_buffer, DB_FILE) == 0) {
-            continue;
-        }
-        std::string extension = filename_buffer;
-        extension = extension.substr(extension.find_last_of(".") + 1);
-        if (extension != "mp3" && extension != "wav" && extension != "flac" && extension != "ogg" && extension != "m3u" && !file_handle.isDirectory()) {
+
+        std::string filename = entry->d_name;
+        std::string extension = filename.substr(filename.find_last_of(".") + 1);
+
+        if (MediaData::get_file_extensions().find(extension) == MediaData::get_file_extensions().end() && entry->d_type != DT_DIR || filename == DB_FILE) {
             continue;
         }
 
         uint8_t type;
-        if (file_handle.isDirectory()) {
+        if (entry->d_type == DT_DIR) {
             type = FILETYPE_DIR;
         } else {
-            if (extension == "mp3") {
-                type = FILETYPE_MP3;
-            } else if (extension == "wav") {
-                type = FILETYPE_WAV;
-            } else if (extension == "flac") {
-                type = FILETYPE_FLAC;
-            } else if (extension == "ogg") {
-                type = FILETYPE_OGG;
-            } else if (extension == "m3u") {
-                type = FILETYPE_M3U;
-            } else {
-                type = FILETYPE_UNKNOWN;
-            }
+            auto it = MediaData::get_file_extensions().find(extension);
+            type = (it != MediaData::get_file_extensions().end()) ? it->second : FILETYPE_UNKNOWN;
         }
 
-        MD5Update(&md5, (unsigned char*) filename_buffer, strlen(filename_buffer));
-
-        std::string _filename = filename_buffer;
-        std::string _path = mediadata.getPath();
+        MD5Update(&md5, reinterpret_cast<const unsigned char*>(filename.c_str()), filename.size());
 
         /* Write record to database */
         sql[0] = '\0';
@@ -327,17 +281,15 @@ File_Explorer::generate_index(MediaData& mediadata, std::function<void(uint32_t,
                  DB_BUF_SIZE,
                  "INSERT INTO files (id, filename, path, type) VALUES (%d, '%s', '%s', %d)",
                  id,
-                 escape_single_quotes(_filename).c_str(),
-                 escape_single_quotes(_path).c_str(),
+                 escape_single_quotes(filename).c_str(),
+                 escape_single_quotes(mediadata.getPath()).c_str(),
                  type);
-        if (Card_Manager::get_handle()->isReady() && sqlite3_exec(sqlite_db, sql, NULL, NULL, NULL) != SQLITE_OK) {
+        if (sqlite3_exec(sqlite_db, sql, NULL, NULL, NULL) != SQLITE_OK) {
             log_e("Failed to execute SQL statement");
             log_e("SQL: %s", sql);
             log_e("Error: %s", sqlite3_errmsg(sqlite_db));
-            sqlite3_close(sqlite_db);
-            return ERROR_FAILURE;
-        } else if (!Card_Manager::get_handle()->isReady()) {
-            log_e("SD card not ready");
+            MD5Final(_checksum, &md5);
+            closedir(_dir_handle);
             sqlite3_close(sqlite_db);
             return ERROR_FAILURE;
         }
@@ -348,7 +300,7 @@ File_Explorer::generate_index(MediaData& mediadata, std::function<void(uint32_t,
 
         id++;
     }
-
+    closedir(_dir_handle);
     /* Write the checksum to the meta table */
     MD5Final(_checksum, &md5);
     checksum_str[0] = '\0';
@@ -358,33 +310,17 @@ File_Explorer::generate_index(MediaData& mediadata, std::function<void(uint32_t,
     checksum_str[MD5_DIGEST_STRING_LEN - 1] = '\0';
     sql[0] = '\0';
     snprintf(sql, DB_BUF_SIZE, "INSERT INTO meta (id, checksum, sort_order) VALUES (1, '%s', 0)", checksum_str);
-    if (Card_Manager::get_handle()->isReady() && sqlite3_exec(sqlite_db, sql, NULL, NULL, NULL) != SQLITE_OK) {
+    if (sqlite3_exec(sqlite_db, sql, NULL, NULL, NULL) != SQLITE_OK) {
         log_e("Failed to execute SQL statement");
         log_e("SQL: %s", sql);
         log_e("Error: %s", sqlite3_errmsg(sqlite_db));
         sqlite3_close(sqlite_db);
         return ERROR_FAILURE;
-    } else if (!Card_Manager::get_handle()->isReady()) {
-        log_e("SD card not ready");
-        sqlite3_close(sqlite_db);
-        return ERROR_FAILURE;
     }
-
     sqlite3_close(sqlite_db);
-    file_handle.close();
     log_i("Computed checksum: %s", checksum_str);
     log_i("Wrote %d files to database", id);
     return ERROR_NONE;
-}
-
-std::string
-File_Explorer::get_db_path(MediaData& mediadata)
-{
-    if (mediadata.path == "/" && mediadata.filename == "/") {
-        return std::string(FS_MOUNT_POINT) + "/" + DB_FILE;
-    } else {
-        return std::string(FS_MOUNT_POINT) + mediadata.getPath() + "/" + DB_FILE;
-    }
 }
 
 File_Explorer::error_t
@@ -422,7 +358,6 @@ File_Explorer::create_db(sqlite3* db)
         return ERROR_FAILURE;
     }
 
-    /* Make it readable by all */
     sql[0] = '\0';
     strcpy(sql, "PRAGMA journal_mode = WAL");
     if (sqlite3_exec(db, sql, NULL, NULL, &error_message) != SQLITE_OK) {
@@ -438,7 +373,7 @@ File_Explorer::create_db(sqlite3* db)
 }
 
 File_Explorer::error_t
-File_Explorer::get_list(std::vector<MediaData>* data, uint32_t index, uint32_t count, uint8_t sort_order, uint8_t sort_type)
+File_Explorer::get_list(std::vector<MediaData>* data, uint32_t index, uint32_t count)
 {
     data->clear();
 
@@ -447,20 +382,15 @@ File_Explorer::get_list(std::vector<MediaData>* data, uint32_t index, uint32_t c
         return ERROR_FAILURE;
     }
 
-    if (!Card_Manager::get_handle()->isReady()) {
-        log_e("SD card not ready");
-        return ERROR_FAILURE;
-    }
-
     if (index == 0 && count == 0) {
         log_e("Invalid index and count");
         return ERROR_INVALID;
     }
 
-    std::string _sort_order = sort_order == SORT_ASCENDING ? "ASC" : "DESC";
-    std::string _sort_type = sort_type == SORT_NAME ? "filename" : "type";
+    std::string _s_order = (_sort_order == SORT_ASCENDING) ? "ASC" : "DESC";
+    std::string _s_type = (_sort_type == SORT_NAME) ? "filename" : "type";
 
-    std::string sql = "SELECT * FROM files ORDER BY " + _sort_type + " " + _sort_order + " LIMIT " + std::to_string(count) + " OFFSET " + std::to_string(index);
+    std::string sql = "SELECT * FROM files ORDER BY " + _s_type + " " + _s_order + " LIMIT " + std::to_string(count) + " OFFSET " + std::to_string(index);
     MediaData cwd;
     if (get_current_dir(cwd) != ERROR_NONE) {
         log_e("Failed to get current directory");
@@ -468,26 +398,20 @@ File_Explorer::get_list(std::vector<MediaData>* data, uint32_t index, uint32_t c
     }
 
     sqlite3* sqlite_db;
-    if (Card_Manager::get_handle()->isReady() && sqlite3_open(get_db_path(cwd).c_str(), &sqlite_db) != SQLITE_OK) {
+    std::string _db_path = std::string(cwd.getPath()) + "/" + DB_FILE;
+
+    if (sqlite3_open(_db_path.c_str(), &sqlite_db) != SQLITE_OK) {
         log_e("Failed to open database file");
-        log_e("DB Path: %s", get_db_path(cwd).c_str());
+        log_e("DB Path: %s", _db_path.c_str());
         log_e("Error: %s", sqlite3_errmsg(sqlite_db));
-        sqlite3_close(sqlite_db);
-        return ERROR_FAILURE;
-    } else if (!Card_Manager::get_handle()->isReady()) {
-        log_e("SD card not ready");
         sqlite3_close(sqlite_db);
         return ERROR_FAILURE;
     }
 
-    if (Card_Manager::get_handle()->isReady() && sqlite3_exec(sqlite_db, sql.c_str(), db_callback_get_files, data, NULL) != SQLITE_OK) {
+    if (sqlite3_exec(sqlite_db, sql.c_str(), db_callback_get_files, data, NULL) != SQLITE_OK) {
         log_e("Failed to execute SQL statement");
         log_e("SQL: %s", sql.c_str());
         log_e("Error: %s", sqlite3_errmsg(sqlite_db));
-        sqlite3_close(sqlite_db);
-        return ERROR_FAILURE;
-    } else if (!Card_Manager::get_handle()->isReady()) {
-        log_e("SD card not ready");
         sqlite3_close(sqlite_db);
         return ERROR_FAILURE;
     }
@@ -499,14 +423,20 @@ File_Explorer::get_list(std::vector<MediaData>* data, uint32_t index, uint32_t c
 File_Explorer::error_t
 File_Explorer::get_current_dir(MediaData& mediadata)
 {
-    if (!ready || !Card_Manager::get_handle()->isReady()) {
-        return ERROR_FAILURE;
-    }
-
     if (directory_stack.empty()) {
         return ERROR_FAILURE;
     }
 
     mediadata = directory_stack.back();
     return ERROR_NONE;
+}
+
+MediaData
+File_Explorer::get_file(uint32_t index)
+{
+    std::vector<MediaData> data;
+    if (get_list(&data, index, 1) == ERROR_NONE) {
+        return data[0];
+    }
+    return MediaData();
 }

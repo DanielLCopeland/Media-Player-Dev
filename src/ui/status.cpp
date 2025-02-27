@@ -24,6 +24,8 @@
 #include <ui/common.h>
 #include <ui/status.h>
 
+UI::StatusScreen* UI::StatusScreen::_handle = nullptr;
+
 UI::StatusScreen::StatusScreen()
 {
     anim_playing = new Animation(bunny_playing, bunny_playing_num_frames);
@@ -64,7 +66,7 @@ void
 UI::StatusScreen::draw()
 {
     display->clearDisplay();
-    if (screensaver->is_blanked()) {
+    if (Screensaver::get_handle()->is_blanked()) {
         display->display();
         return;
     }
