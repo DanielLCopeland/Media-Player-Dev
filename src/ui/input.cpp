@@ -167,7 +167,6 @@ UI::TextInput::get(std::string prompt, std::string defaultText, uint8_t maxLengt
 
     /* Main loop */
     while (true) {
-        serviceLoop();
 
         if (Buttons::get_handle()->getButtonEvent(BUTTON_PLAY, SHORTPRESS)) {
             if (editMode)

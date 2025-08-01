@@ -29,7 +29,7 @@
 #define INSERTION_DEBOUNCE_MS 500
 #define REMOVAL_DEBOUNCE_MS   5
 #define SD_CS_PIN             38
-#define SD_CONFIG             SdSpiConfig(SD_CS_PIN, DEDICATED_SPI, SD_SCK_MHZ(20), &SPI)
+#define SD_CONFIG             SdSpiConfig(SD_CS_PIN, SHARED_SPI, SD_SCK_MHZ(20), &SPI)
 
 #include <SdFat.h>
 #include <transport.h>

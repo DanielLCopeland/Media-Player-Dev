@@ -111,50 +111,38 @@ Transport::begin()
     url_stream.setWaitForData(false);
     status = TRANSPORT_IDLE;
 
-    /**
-     * Start a copier in a separate task on core 0, continously listening
-     * for data on the ring buffer, and copying it to the output stream when data
-     * is available. This is done because other libraries such as SDFat are not
-     * thread safe and must be run in the main loop only, and also to keep the
-     * audio playing smoothly while the main loop is running other tasks.
-     */
-    log_i("Starting audio task on core 0");
-    audio_task.create("audio_writer", 1024 * 8, 1, 0);
-    audio_task.begin(audio_writer(this));
 }
 
-std::function<void()>
+void
 Transport::audio_writer(Transport* _transport)
 {
-    return [_transport] {
-        /* Loop forever, waiting for data to be available on the ring buffer */
-        log_i("Audio task started, reporting from core %d", xPortGetCoreID());
-        _transport->spectrumAnalyzer->clear();
-        const uint16_t chunksize = AUDIO_BUFFER_READ_CHUNK;
-        while (true) {
-            if (_transport->ringBuffer.available()) {
+    /* Loop forever, waiting for data to be available on the ring buffer */
+    log_i("Audio task started, reporting from core %d", xPortGetCoreID());
+    _transport->spectrumAnalyzer->clear();
+    const uint16_t chunksize = AUDIO_BUFFER_READ_CHUNK;
+    while (true) {
+        if (_transport->ringBuffer.available()) {
 
-                uint16_t bytes_available = _transport->ringBuffer.available();
-                if (bytes_available > chunksize) {
-                    bytes_available = chunksize;
-                }
-                uint8_t data[bytes_available];
-                _transport->mutex.lock();
-                _transport->ringBuffer.readArray(data, bytes_available);
-                _transport->mutex.unlock();
-                _transport->mp3_decoder.write(data, bytes_available);
+            uint16_t bytes_available = _transport->ringBuffer.available();
+            if (bytes_available > chunksize) {
+                bytes_available = chunksize;
             }
-            if (!_transport->ringBuffer.available()) {
-                /* If nothing is available, send chunks of silence to the stream to
-                keep the DAC alive and prevent pops and glitches */
-                uint8_t silence[chunksize];
-                memset(silence, 0, chunksize);
-                _transport->output.write(silence, chunksize);
-            }
-
-            vTaskDelay(10 / portTICK_PERIOD_MS);
+            uint8_t data[bytes_available];
+            _transport->mutex.lock();
+            _transport->ringBuffer.readArray(data, bytes_available);
+            _transport->mutex.unlock();
+            _transport->mp3_decoder.write(data, bytes_available);
         }
-    };
+        if (!_transport->ringBuffer.available()) {
+            /* If nothing is available, send chunks of silence to the stream to
+            keep the DAC alive and prevent pops and glitches */
+            uint8_t silence[chunksize];
+            memset(silence, 0, chunksize);
+            _transport->output.write(silence, chunksize);
+        }
+
+        vTaskDelay(10 / portTICK_PERIOD_MS);
+    }
 }
 
 uint8_t
@@ -191,12 +179,12 @@ Transport::load(MediaData media)
         if (media.type != FILETYPE_M3U) {
             switch (media.source) {
                 case LOCAL_FILE:
-                    if (_file_handle) {
-                        fclose(_file_handle);
+                    if (_file_descriptor) {
+                        close(_file_descriptor);
                     }
-                    _file_handle = fopen(media.filename.c_str(), "r");
+                    _file_descriptor = open(media.getPath(), O_RDONLY);
                     bytes_read = 0;
-                    if (_file_handle) {
+                    if (_file_descriptor) {
                         *loadedMedia = media;
                         status = TRANSPORT_STOPPED;
                         resetMetadata();
@@ -233,7 +221,7 @@ Transport::play()
     playingUISound = false;
     volume_stream.setVolume((float) volume / TRANSPORT_MAX_VOLUME);
 
-    if (loadedMedia->loaded && loadedMedia->source == LOCAL_FILE && _file_handle) {
+    if (loadedMedia->loaded && loadedMedia->source == LOCAL_FILE && _file_descriptor) {
         status = TRANSPORT_PLAYING;
         log_i("Playing file: %s", loadedMedia->filename.c_str());
         return true;
@@ -288,7 +276,7 @@ Transport::stop()
         status = TRANSPORT_STOPPED;
         bytes_read = 0;
         if (loadedMedia->source == LOCAL_FILE) {
-            fseek(_file_handle, 0, SEEK_SET);
+            lseek(_file_descriptor, 0, SEEK_SET);
         }
         log_i("Stopped");
         clearPlayTime();
@@ -311,7 +299,8 @@ Transport::eject()
     stop();
     resetMetadata();
     *loadedMedia = MediaData();
-    fclose(_file_handle);
+    close(_file_descriptor);
+    _file_descriptor = -1;
     status = TRANSPORT_IDLE;
 }
 
@@ -492,7 +481,7 @@ Transport::loop()
                 /* If the audio buffer has space, write the next AUDIO_BUFFER_CHUNK_SIZE
                 bytes of the file to the buffer */
 
-                fstat(fileno(_file_handle), &st);
+                fstat(_file_descriptor, &st);
                 _bytes_available = st.st_size - bytes_read;
                 if (ringBuffer.availableForWrite() > AUDIO_BUFFER_WRITE_CHUNK && _bytes_available) {
                     uint16_t chunkSize = 0;
@@ -501,9 +490,9 @@ Transport::loop()
                     } else {
                         chunkSize = AUDIO_BUFFER_WRITE_CHUNK;
                     }
-                    
+
                     uint8_t data[chunkSize];
-                    int32_t _bytes = fread(data, 1, chunkSize, _file_handle);
+                    uint32_t _bytes = read(_file_descriptor, data, chunkSize);
 
                     if (_bytes < 0) {
                         log_e("Error reading file %s", loadedMedia->filename.c_str());
@@ -728,6 +717,7 @@ Transport::SpectrumAnalyzer::update()
 
     /* Now we will apply a simple decay to the peak values to enhance the visual effect */
     decayPeaks();
+
 }
 
 void

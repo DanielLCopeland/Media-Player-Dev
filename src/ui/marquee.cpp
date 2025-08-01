@@ -131,10 +131,8 @@ UI::Marquee::draw(uint16_t x, uint16_t y, uint16_t width)
 void
 UI::Marquee::refresh()
 {
-    if (!dynamic) {
-        return;
-    }
-    if (_messages.size() == 0) {
+
+    if (_messages.size() == 0 || !dynamic) {
         return;
     }
 

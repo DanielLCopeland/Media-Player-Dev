@@ -703,8 +703,9 @@ Config_Manager::resetPreferences()
 }
 
 void
-serviceLoop()
-{
+task_loop()
+{   
+    vTaskDelay(1);
     if (Config_Manager::get_handle() != nullptr) {
 
         /* Check for Bluetooth data */

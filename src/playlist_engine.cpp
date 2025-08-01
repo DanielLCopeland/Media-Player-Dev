@@ -151,7 +151,6 @@ PlaylistEngine::getTrackList()
             break;
         }
 
-        serviceLoop();
         line.clear();
         uint32_t startPointer = file.position();
 

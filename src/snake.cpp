@@ -45,8 +45,6 @@ Snake::run()
 
     while (true) {
 
-        serviceLoop();
-
         /* Check for button presses and change snake direction, but don't allow the snake to reverse direction */
         if (Buttons::get_handle()->getButtonEvent(BUTTON_UP, SHORTPRESS) && this->direction != Direction::DOWN) {
             this->direction = Direction::UP;

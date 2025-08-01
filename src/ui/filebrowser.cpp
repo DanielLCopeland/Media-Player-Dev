@@ -64,6 +64,8 @@ UI::FileBrowser::refresh()
 MediaData
 UI::FileBrowser::get()
 {
+    Transport::get_handle()->playUIsound(folder_open, folder_open_len);
+    
     if (file_explorer == nullptr) {
         file_explorer = new File_Explorer();
         file_explorer->init(_status_callback);
@@ -84,7 +86,6 @@ UI::FileBrowser::get()
                 positionHistory.pop_back();
             }
         } else if (selection == UI_EXIT) {
-            Transport::get_handle()->playUIsound(folder_close, folder_close_len);
             return MediaData();
         } else {
             MediaData selectedFile = file_explorer->get_file(selection);
@@ -95,7 +96,6 @@ UI::FileBrowser::get()
                     listSelection.reset_position();
                 }
             } else {
-                Transport::get_handle()->playUIsound(load_item, load_item_len);
                 return selectedFile;
             }
         }

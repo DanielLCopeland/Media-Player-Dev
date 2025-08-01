@@ -416,7 +416,7 @@ class Config_Manager
     Preferences* preferences;
 };
 
-void serviceLoop(); /* This function is called in the main loop and in most other loops
+void task_loop(); /* This function is called in the main loop and in most other loops
                        to handle system services such as Bluetooth, audio playback, etc. */
 
 #endif

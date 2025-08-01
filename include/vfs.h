@@ -27,6 +27,7 @@
 #define vfs_h
 
 #include <SdFat.h>
+#include <AudioTools/Concurrency/Mutex.h>
 #include <card_manager.h>
 #include <dirent.h>
 #include <esp_vfs.h>
@@ -49,29 +50,39 @@ struct file_descriptor
 };
 
 static std::vector<file_descriptor> file_descriptors;
+static audio_tools::Mutex file_mutex;
 
 static FsFile*
 vfs_get_file_handle(int fd)
 {
+    //while (!file_mutex.try_lock()) {
+        // Wait for the mutex to be available
+    //    vTaskDelay(10);
+    //}
     for (auto& f : file_descriptors) {
         if (f.fd == fd) {
+            //file_mutex.unlock();
             return f.handle;
         }
     }
-
+    //file_mutex.unlock();
     return nullptr;
 }
 
 static ssize_t
 vfs_write(int fd, const void* data, size_t size)
 {
+    file_mutex.lock();
+
     if (!Card_Manager::get_handle()->isReady()) {
+        file_mutex.unlock();
         return -1;
     }
 
     FsFile* file = vfs_get_file_handle(fd);
 
     if (file == nullptr) {
+        file_mutex.unlock();
         return -1;
     }
 
@@ -81,10 +92,13 @@ vfs_write(int fd, const void* data, size_t size)
         if (file->getWriteError()) {
             char filename[PATH_MAX];
             file->getName(filename, PATH_MAX);
+            file_mutex.unlock();
             return -1;
         }
+        file_mutex.unlock();
         return ret;
     } else {
+        file_mutex.unlock();
         return -1;
     }
 }
@@ -92,20 +106,26 @@ vfs_write(int fd, const void* data, size_t size)
 static ssize_t
 vfs_read(int fd, void* dst, size_t size)
 {
+    file_mutex.lock();
+
     if (!Card_Manager::get_handle()->isReady()) {
+        file_mutex.unlock();
         return -1;
     }
 
     FsFile* file = vfs_get_file_handle(fd);
 
     if (file == nullptr) {
+        file_mutex.unlock();
         return -1;
     }
 
     if (file->isOpen()) {
         size_t ret = file->read(dst, size);
+        file_mutex.unlock();
         return ret;
     } else {
+        file_mutex.unlock();
         return -1;
     }
 }
@@ -113,7 +133,10 @@ vfs_read(int fd, void* dst, size_t size)
 static int
 vfs_open(const char* path, int flags, int mode)
 {
+    file_mutex.lock();
+
     if (!Card_Manager::get_handle()->isReady() || strlen(path) > PATH_MAX) {
+        file_mutex.unlock();
         return -1;
     }
 
@@ -122,6 +145,7 @@ vfs_open(const char* path, int flags, int mode)
 
     if (!file.handle->open(path, O_RDWR | O_CREAT)) {
         delete file.handle;
+        file_mutex.unlock();
         return -1;
     }
     /* Generate a unique file descriptor that is not already in use */
@@ -136,34 +160,42 @@ vfs_open(const char* path, int flags, int mode)
     file_descriptors.push_back(file);
     strcpy(file.path, path);
 
+    file_mutex.unlock();
     return fd;
 }
 
 static int
 vfs_close(int fd)
 {
+    file_mutex.lock();
+
     for (auto it = file_descriptors.begin(); it != file_descriptors.end(); ++it) {
         if (it->fd == fd) {
             it->handle->close();
             delete it->handle;
             file_descriptors.erase(it);
+            file_mutex.unlock();
             return 1;
         }
     }
 
+    file_mutex.unlock();
     return -1;
 }
 
 static int
 vfs_fstat(int fd, struct stat* st)
 {
+    file_mutex.lock();
     if (!Card_Manager::get_handle()->isReady()) {
+        file_mutex.unlock();
         return -1;
     }
 
     FsFile* file = vfs_get_file_handle(fd);
 
     if (file == nullptr) {
+        file_mutex.unlock();
         return -1;
     }
 
@@ -174,8 +206,10 @@ vfs_fstat(int fd, struct stat* st)
         st->st_mtime = 0;
         st->st_atime = 0;
         st->st_ctime = 0;
+        file_mutex.unlock();
         return 0;
     } else {
+        file_mutex.unlock();
         return -1;
     }
 }
@@ -183,20 +217,22 @@ vfs_fstat(int fd, struct stat* st)
 int
 vfs_stat(const char* path, struct stat* st)
 {
+    file_mutex.lock();
+
     if (!Card_Manager::get_handle()->isReady()) {
+        file_mutex.unlock();
         return -1;
     }
 
     FsFile file;
+    // log_i("Checking file: %s", path);
 
     if (!Card_Manager::get_handle()->exists(path)) {
+        file_mutex.unlock();
         return -1;
     }
 
-    if (!file.open(path, O_RDONLY)) {
-        log_e("Failed to open file: %s", path);
-        return -1;
-    }
+    file = Card_Manager::get_handle()->open(path, O_RDONLY);
 
     st->st_blksize = 512;
     st->st_size = file.size();
@@ -204,36 +240,52 @@ vfs_stat(const char* path, struct stat* st)
     st->st_mtime = 0;
     st->st_atime = 0;
     st->st_ctime = 0;
-    log_i("File size: %d", st->st_size);
+    // log_i("File size: %d", st->st_size);
+    // log_i("File size from SDFat: %d", file.size());
     file.close();
+    file_mutex.unlock();
     return 0;
 }
 
 static off_t
 vfs_lseek(int fd, off_t offset, int mode)
 {
+    file_mutex.lock();
+
     if (!Card_Manager::get_handle()->isReady()) {
+        file_mutex.unlock();
         return -1;
     }
 
     FsFile* file = vfs_get_file_handle(fd);
 
     if (file == nullptr) {
+        file_mutex.unlock();
         return -1;
     }
 
+    int ret = 0;
     if (file->isOpen()) {
         switch (mode) {
             case SEEK_SET:
-                return file->seekSet(offset);
+                ret = file->seekSet(offset);
+                file_mutex.unlock();
+                return ret;
             case SEEK_CUR:
-                return file->seekCur(offset);
+                ret = file->seekCur(offset);
+                file_mutex.unlock();
+                return ret;
             case SEEK_END:
-                return file->seekEnd(offset);
+                ret = file->seekEnd(offset);
+                file_mutex.unlock();
+                return ret;
             default:
-                return -1;
+                ret = -1;
+                file_mutex.unlock();
+                return ret;
         }
     } else {
+        file_mutex.unlock();
         return -1;
     }
 }
@@ -241,17 +293,24 @@ vfs_lseek(int fd, off_t offset, int mode)
 static int
 vfs_link(const char* oldpath, const char* newpath)
 {
+    file_mutex.lock();
+
     if (!Card_Manager::get_handle()->isReady() || strlen(oldpath) > PATH_MAX || strlen(newpath) > PATH_MAX) {
+        file_mutex.unlock();
         return -1;
     }
 
+    file_mutex.unlock();
     return -1;
 }
 
 static int
 vfs_unlink(const char* path)
 {
+    file_mutex.lock();
+
     if (!Card_Manager::get_handle()->isReady() || strlen(path) > PATH_MAX) {
+        file_mutex.unlock();
         return -1;
     }
 
@@ -266,16 +325,21 @@ vfs_unlink(const char* path)
     }
 
     if (!Card_Manager::get_handle()->remove(path)) {
+        file_mutex.unlock();
         return -1;
     }
 
+    file_mutex.unlock();
     return 0;
 }
 
 static int
 vfs_rename(const char* oldpath, const char* newpath)
 {
+    file_mutex.lock();
+
     if (!Card_Manager::get_handle()->isReady()) {
+        file_mutex.unlock();
         return -1;
     }
 
@@ -290,30 +354,38 @@ vfs_rename(const char* oldpath, const char* newpath)
     }
 
     if (!Card_Manager::get_handle()->rename(oldpath, newpath)) {
+        file_mutex.unlock();
         return -1;
     }
 
+    file_mutex.unlock();
     return 1;
 }
 
 static int
 vfs_truncate(const char* path, off_t length)
 {
+    file_mutex.lock();
+
     FsFile file;
 
     if (!Card_Manager::get_handle()->isReady()) {
+        file_mutex.unlock();
         return -1;
     }
 
     if (!Card_Manager::get_handle()->exists(path)) {
+        file_mutex.unlock();
         return -1;
     }
 
     if (!file.open(path, O_RDWR)) {
+        file_mutex.unlock();
         return -1;
     }
 
     if (!file.truncate(length)) {
+        file_mutex.unlock();
         return -1;
     }
 
@@ -323,13 +395,18 @@ vfs_truncate(const char* path, off_t length)
 static int
 vfs_access(const char* path, int mode)
 {
+    file_mutex.lock();
+
     if (!Card_Manager::get_handle()->isReady()) {
+        file_mutex.unlock();
         return -1;
     }
 
     if (Card_Manager::get_handle()->exists(path)) {
+        file_mutex.unlock();
         return 0;
     } else {
+        file_mutex.unlock();
         return -1;
     }
 }
@@ -337,20 +414,26 @@ vfs_access(const char* path, int mode)
 static int
 vfs_fsync(int fd)
 {
+    file_mutex.lock();
+
     if (!Card_Manager::get_handle()->isReady()) {
+        file_mutex.unlock();
         return -1;
     }
 
     FsFile* file = vfs_get_file_handle(fd);
 
     if (file == nullptr) {
+        file_mutex.unlock();
         return -1;
     }
 
     if (file->isOpen()) {
         file->sync();
+        file_mutex.unlock();
         return 0;
     } else {
+        file_mutex.unlock();
         return -1;
     }
 }
@@ -359,54 +442,72 @@ vfs_fsync(int fd)
 static DIR*
 vfs_opendir(const char* name)
 {
+    file_mutex.lock();
+
     if (!Card_Manager::get_handle()->isReady()) {
+        file_mutex.unlock();
         return nullptr;
     }
     vfs_dir* vdir = new vfs_dir;
     if (!vdir->dir.open(name, O_RDONLY)) {
         delete vdir;
+        file_mutex.unlock();
         return nullptr;
     }
+    file_mutex.unlock();
     return reinterpret_cast<DIR*>(vdir);
 }
 
 static struct dirent*
 vfs_readdir(DIR* pdir)
 {
+    file_mutex.lock();
+
     if (!Card_Manager::get_handle()->isReady()) {
+        file_mutex.unlock();
         return nullptr;
     }
     vfs_dir* vdir = reinterpret_cast<vfs_dir*>(pdir);
     // FIXME:
     if (!vdir->file.openNext(&vdir->dir, O_RDONLY)) {
+        file_mutex.unlock();
         return nullptr;
     }
     vdir->file.getName(vdir->entry.d_name, sizeof(vdir->entry.d_name));
     vdir->entry.d_type = vdir->file.isDir() ? DT_DIR : DT_REG;
+    file_mutex.unlock();
     return &vdir->entry;
 }
 
 static int
 vfs_closedir(DIR* pdir)
 {
+    file_mutex.lock();
+
     vfs_dir* vdir = reinterpret_cast<vfs_dir*>(pdir);
     vdir->dir.close();
     vdir->file.close();
     delete vdir;
+    file_mutex.unlock();
     return 0;
 }
 
 static int
 vfs_mkdir(const char* path, mode_t mode)
 {
+    file_mutex.lock();
+
     if (!Card_Manager::get_handle()->isReady()) {
+        file_mutex.unlock();
         return -1;
     }
 
     if (!Card_Manager::get_handle()->mkdir(path)) {
+        file_mutex.unlock();
         return -1;
     }
 
+    file_mutex.unlock();
     return 0;
 }
 

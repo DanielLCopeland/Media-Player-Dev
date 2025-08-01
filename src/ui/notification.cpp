@@ -70,7 +70,6 @@ UI::SystemMessage::show(std::string message, uint16_t duration, bool animated)
 
     if (duration > 0 && !animated)
         while (!notificationTimer.check(duration)) {
-            serviceLoop();
 
             // If any of the buttons are pushed, immediately exit the notification
             if (Buttons::get_handle()->getButtonEvent(BUTTON_PLAY, SHORTPRESS && !Buttons::get_handle()->isHeld(BUTTON_MENU)) ||

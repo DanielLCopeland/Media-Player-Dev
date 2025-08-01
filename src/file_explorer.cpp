@@ -162,7 +162,6 @@ File_Explorer::generate_index(MediaData& mediadata, std::function<void(uint32_t,
     MD5Init(&md5);
     struct dirent* entry;
     while ((entry = readdir(_dir_handle)) != nullptr) {
-        serviceLoop();
         std::string filename = entry->d_name;
         std::string extension = filename.substr(filename.find_last_of(".") + 1);
 
@@ -255,8 +254,6 @@ File_Explorer::generate_index(MediaData& mediadata, std::function<void(uint32_t,
 
     /* Retrieve every filename in the directory and write its attributes to the database, and calculate the checksum */
     while ((entry = readdir(_dir_handle)) != nullptr) {
-
-        serviceLoop();
 
         std::string filename = entry->d_name;
         std::string extension = filename.substr(filename.find_last_of(".") + 1);

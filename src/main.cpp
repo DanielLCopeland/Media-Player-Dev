@@ -290,6 +290,35 @@ setup()
 
     /* Event handler for when we cannot connect to the network */
     WiFiEventId_t wifiConnectFailed = WiFi.onEvent(onWifiFailed, WiFiEvent_t::ARDUINO_EVENT_WIFI_STA_START);
+    
+    /* Start the system task loop */
+    xTaskCreatePinnedToCore([](void*) {
+        for (;;) {
+            task_loop();
+        }
+    },
+                            "TaskLoop",
+                            8192,
+                            NULL,
+                            1,
+                            NULL,
+                            1);
+    log_i("System task started");
+
+    /* Start the audio task */
+    xTaskCreatePinnedToCore([](void*) {
+        for (;;) {
+            Transport::get_handle()->audio_writer(Transport::get_handle());
+        }
+    },
+                            "AudioTask",
+                            8192,
+                            NULL,
+                            1,
+                            NULL,
+                            0);
+    log_i("Audio task started");
+
     MediaData mediadata;
     mediadata.source = LOCAL_FILE;
     mediadata.path = "/";
@@ -303,11 +332,10 @@ void
 loop()
 {
     /* Draw the main screen showing the currently playing file/url, transport status, and other info */
-    UI::StatusScreen::get_handle()->draw();
+    UI::StatusScreen::get_handle()->draw(); 
+
     /* Check for button presses and handle them */
     checkButtons();
-    /* Handle streams and other housekeeping */
-    serviceLoop();
 
     vTaskDelay(10 / portTICK_PERIOD_MS);
 }

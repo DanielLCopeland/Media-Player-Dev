@@ -64,8 +64,6 @@ UI::ValueSelector::get()
 
     while (true) {
 
-        serviceLoop();
-
         if (Buttons::get_handle()->getButtonEvent(BUTTON_EXIT, SHORTPRESS)) {
             Transport::get_handle()->playUIsound(folder_close, folder_close_len);
             return UI_EXIT;

@@ -39,7 +39,7 @@ buffer is used to transfer audio data from one task to another. We use mutexes t
 #include <AudioTools/AudioCodecs/CodecOpusOgg.h>
 #include <AudioTools/AudioCodecs/CodecWAV.h>
 #include <AudioTools/AudioLibs/AudioRealFFT.h>
-#include <AudioTools/Concurrency/All.h>
+#include <AudioTools/Concurrency/Mutex.h>
 #include <AudioTools/CoreAudio/MusicalNotes.h>
 #include <FS.h>
 #include <WiFi.h>
@@ -142,7 +142,7 @@ class Transport
     size_t getPlayTime();
     void clearPlayTime();
 
-    static std::function<void()> audio_writer(Transport* _transport);
+    static void audio_writer(Transport* _transport);
 
     Timer debugTimer;
 
@@ -175,7 +175,7 @@ class Transport
     }* spectrumAnalyzer = nullptr;
     static const uint16_t spectrum_analyzer_refresh_interval = 5;
 
-    class EqualizerController : public audio_tools::Equilizer3Bands
+    class EqualizerController : public audio_tools::Equalizer3Bands
     {
       private:
         bool eq_enabled = false;
@@ -184,11 +184,11 @@ class Transport
         uint8_t _mid = 0;
         uint8_t _treble = 0;
 
-        ConfigEquilizer3Bands cfg;
+        ConfigEqualizer3Bands cfg;
 
       public:
         EqualizerController(audio_tools::AudioStream& out)
-          : audio_tools::Equilizer3Bands(out)
+          : audio_tools::Equalizer3Bands(out)
         {
             cfg.sample_rate = 44100;
             cfg.bits_per_sample = 16;
@@ -295,10 +295,10 @@ class Transport
     // ICYStream url_stream;
     Timer connection_timeout_timer;
 
-    audio_tools::Task audio_task;
     audio_tools::Task* connection_task = nullptr;
     
-    FILE* _file_handle = nullptr;
+    int _file_descriptor = -1; /* File descriptor for the currently loaded file */
+
     uint32_t bytes_read = 0;
 
     /* Timer to control the play time display */

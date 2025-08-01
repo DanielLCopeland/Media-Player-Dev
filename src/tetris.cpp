@@ -86,7 +86,6 @@ Tetris::Tetris()
 
         /* Make sure the next piece is unique by comparing the shape id with each piece in the queue */
         while (true) {
-            serviceLoop(); /* We want to keep doing background tasks in every "captive" loop */
             bool unique = true;
             for (uint8_t j = 0; j < i; j++) {
                 if (pieceQueue[i].getID() == pieceQueue[j].getID()) {
@@ -113,8 +112,6 @@ Tetris::run()
 
     /* Main game loop */
     while (true) {
-
-        serviceLoop();
 
         if (Buttons::get_handle()->getButtonEvent(BUTTON_UP, SHORTPRESS)) {
             if (!checkCollision(currentPiece, Tetris_Data::Direction::LEFT)) {
@@ -569,7 +566,6 @@ Tetris::generateNextPiece()
     piece.loadShape(seed);
     pieceQueue.push_back(piece);
     while (true) {
-        serviceLoop();
         bool unique = true;
         for (uint8_t j = 0; j < pieceQueue.size() - 1; j++) {
             if (pieceQueue.back().getID() == pieceQueue[j].getID()) {

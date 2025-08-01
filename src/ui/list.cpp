@@ -45,7 +45,6 @@ UI::ListSelection::_get()
 {
     /* Main loop */
     while (true) {
-        serviceLoop();
 
         if (Buttons::get_handle()->getButtonEvent(BUTTON_UP, SHORTPRESS))
             cursorUp();
